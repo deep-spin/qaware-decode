@@ -262,13 +262,14 @@ task GenerateTranslation
     :: repo=@
     :: src_lang=@
     :: tgt_lang=@
+    :: comet_dir=@
     :: bpe_type=@
     :: is_multilingual=@
     :: infer_batchsize=@
     :: sampling=@
     :: sampling_topp=@
     :: rerank=@
-    :: nbest=5
+    :: nbest=@
 {
     # TODO: test this
     multilingual_args=""
