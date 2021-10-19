@@ -121,6 +121,7 @@ task ApplyBPEDev calls ApplyBPE
     > prep_tgt
     :: bpe_type=@ repo=@
 
+
 task ApplyBPETest calls ApplyBPE
     < raw_src=$test_src@GetDevTestData
     < raw_tgt=$test_tgt@GetDevTestData
@@ -210,7 +211,6 @@ task TrainModel
     max_tokens=4096
     update_freq=8
 
-    # TODO: currently training only supports sentencepiece models
     fairseq-train \
         $bin_dir \
         --fp16 \
@@ -226,13 +226,14 @@ task TrainModel
         --patience $patience \
         --eval-bleu \
         --eval-bleu-args '{"beam": 5, "max_len_a": 1.2, "max_len_b": 10}' \
-        --eval-bleu-remove-bpe $([ "$bpe_type" = "sentencepiece" ] && echo "sentencepiece" || echo "")  \
+        $([ "$bpe_type" = "fastbpe" ] && echo "--eval-bleu-detok moses" || echo "")  \
+        --eval-bleu-remove-bpe $([ "$bpe_type" = "sentencepiece" ] && echo "sentencepiece" || echo "") \
         --eval-bleu-print-samples \
         --no-epoch-checkpoints \
         --save-dir $model_dir \
         --seed $seed
 
-    # copy necessary files for a full checkpoint
+    # copy necessary files for a complete checkpoint
     if [ "$bpe_type" = "sentencepiece" ]; then
         ln -s $bpe_model $model_dir/sentencepiece.bpe.model 
     elif [ "$bpe_type" = "fastbpe" ]; then
@@ -243,11 +244,14 @@ task TrainModel
     fi
     cp $src_dict  $model_dir/dict.${src_lang}.txt
     cp $tgt_dict  $model_dir/dict.${tgt_lang}.txt
-    mv $model_dir/model_best.pt $model_dir/model.pt
+    mv $model_dir/checkpoint_best.pt $model_dir/model.pt
 }
 
 task GenerateTranslation
     < bin_dir=@BinarizeData
+    < dev_src=@GetDevTestData
+    < dev_tgt=@GetDevTestData
+    < test_src=@GetDevTestData
     < model_dir=(
         UsePretrained:
             true=$pretrained_model
@@ -259,7 +263,12 @@ task GenerateTranslation
     :: src_lang=@
     :: tgt_lang=@
     :: bpe_type=@
+    :: is_multilingual=@
     :: infer_batchsize=@
+    :: sampling=@
+    :: sampling_topp=@
+    :: rerank=@
+    :: nbest=5
 {
     # TODO: test this
     multilingual_args=""
@@ -270,36 +279,66 @@ task GenerateTranslation
         multilingual_args+="\\\n --fixed-dictionary $model_dir/dict.txt"
     fi
 
-    fairseq-generate \
-        $bin_dir \
-        --fp16 \
-        -s $src_lang -t $tgt_lang \
-        --batch-size $infer_batchsize \
-        --path $model_dir/model.pt \
-        $multilingual_args \
-        --remove-bpe $([ "$bpe_type" = "sentencepiece" ] && echo "sentencepiece" || echo "") \
-        --gen-subset test \
-        --distributed-world-size 1 --distributed-no-spawn > full_outputs 
+    generate () {
+        fairseq-generate \
+            $bin_dir \
+            --fp16 \
+            -s $src_lang -t $tgt_lang \
+            --gen-subset $1 \
+            --batch-size $infer_batchsize \
+            --path $model_dir/model.pt \
+            $multilingual_args \
+            --remove-bpe $([ "$bpe_type" = "sentencepiece" ] && echo "sentencepiece" || echo "") \
+            $([ "$sampling" = true ] && echo "--sampling" || echo "") \
+            $([ ! -z "$sampling_topp"  ] && echo "--sampling-topp $sampling_topp" || echo "") \
+            --beam $([ "$rerank" = true ] && echo "$nbest" || echo "5") \
+            $([ "$rerank" = true ] && echo "--nbest $nbest" || echo "") \
+                > full_outputs 
 
-        cat full_outputs | grep ^H | cut -c 3- | sort -n | cut -f2 > scores
-        cat full_outputs | grep ^H | cut -c 3- | sort -n | cut -f3- > $predictions
+        cat full_outputs | grep ^H | cut -c 3- | sort -n | cut -f2 > $2
+        cat full_outputs | grep ^H | cut -c 3- | sort -n | cut -f3- > $3
+    }
 
+    generate test test_scores $predictions
+    if [ "$rerank" = true ]; then
+        mv $predictions test_nbest
+
+        generate valid dev_scores dev_nbest
+
+        python $repo/scripts/rerank_prepare.py \
+            test_nbest test_scores test_features \
+            --nbest $nbest \
+            --add-cometsrc $comet_dir \
+            --src $test_src 
+        python $repo/scripts/rerank_prepare.py \
+            dev_nbest dev_scores dev_features \
+            --nbest $nbest \
+            --add-cometsrc $comet_dir \
+            --src $dev_src 
+        
+        $repo/scripts/mert_rerank.sh dev_features $dev_tgt test_features $predictions
+    fi
 }
 
 task ScoreTranslations
+    < test_src=@GetDevTestData
     < test_tgt=@GetDevTestData
     < predictions=@GenerateTranslation
     > score
-    :: .submitter=@ .cpus=1 .mem=8000M
+    :: .submitter=@ .gres="gpu:1" .cpus=4 .mem=16000M
     :: repo=@
     :: src_lang=@
     :: tgt_lang=@
+    :: comet_dir=@
 {
-    python $repo/scripts/score.py $predictions $test_tgt > $score
+    python $repo/scripts/score.py \
+        $predictions $test_tgt --src $test_src \
+        --comet $comet_dir > $score
 }
 
 summary TranslationQuality {
-  of ScoreTranslations >  bleu {
-      cat $score | grep -oP "BLEU = \K[-0-9.]+" > $bleu
+  of ScoreTranslations >  bleu comet {
+    cat $score | grep -oP "COMET = \K[-0-9.]+" > $comet
+    cat $score | grep -oP "BLEU = \K[-0-9.]+" > $bleu
   }
 }

@@ -4,7 +4,8 @@ global {
     ducttape_experimental_submitters=true
     submitter="slurm"
 
-    repo=/home/pfernand/repos/qaware-decoding
+    repo=/home/pfernand/repos/qaware-decoding/
+    comet_dir=/projects/tir1/users/pfernand/comet-v3/
 
     train_dir="/projects/tir1/corpora/contextual_mt/iwslt2017/en-de/"
     devtest_dir="/projects/tir1/corpora/contextual_mt/iwslt2017/en-de/"
@@ -16,12 +17,36 @@ global {
     src_lang=en
     tgt_lang=de
 
-    max_tokens=2048
+    # Decoding Arguments
     infer_batchsize=16
+    sampling=(
+        DecodeType:
+            beam_search=false
+            sampling=true
+            nucleus_80=true
+    )
+    sampling_topp=(
+        DecodeType:
+            beam_search=""
+            sampling=""
+            nucleus_80=0.8
+    )
+
+    rerank=(
+        Rerank:
+            false=false
+            true=true
+    )
+    nbest=(
+        NBest:
+            20=20
+            50=50
+            100=100
+    )
 
     seed=9
 }
 
 plan Baseline {
-    reach ScoreTranslations via (UsePretrained: false)
+    reach ScoreTranslations via (UsePretrained: false) * (Rerank: true)
 }
