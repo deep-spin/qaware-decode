@@ -1,0 +1,27 @@
+global {
+    ducttape_output="/projects/tir4/users/pfernand/workflows-outputs/qaware-iwslt14"
+    ducttape_experimental_imports=true
+    ducttape_experimental_submitters=true
+    submitter="slurm"
+
+    repo=/home/pfernand/repos/qaware-decoding
+
+    train_dir="/projects/tir1/corpora/contextual_mt/iwslt2017/en-de/"
+    devtest_dir="/projects/tir1/corpora/contextual_mt/iwslt2017/en-de/"
+    
+    pretrained_model=""
+    is_multilingual=False
+    bpe_type=sentencepiece
+
+    src_lang=en
+    tgt_lang=de
+
+    max_tokens=2048
+    infer_batchsize=16
+
+    seed=9
+}
+
+plan Baseline {
+    reach ScoreTranslations via (UsePretrained: false)
+}

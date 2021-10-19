@@ -1,0 +1,3 @@
+git+git://github.com/pytorch/fairseq.git@main
+sentencepiece
+sacrebleu
