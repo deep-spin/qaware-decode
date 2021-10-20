@@ -35,8 +35,16 @@ global {
     rerank=(
         Rerank:
             false=false
-            true=true
+            fixed=fixed
+            train=train
     )
+    rerank_weights=(
+        Rerank:
+            false=""
+            fixed="logprob=0 cometsrc=1"
+            train="logprob=1 cometsrc=0.1"
+    )
+
     nbest=(
         NBest:
             20=20
@@ -49,4 +57,8 @@ global {
 
 plan Baseline {
     reach ScoreTranslations via (UsePretrained: true)
+}
+
+plan Rerank {
+    reach ScoreTranslations via (UsePretrained: true) * (Rerank: fixed train)
 }

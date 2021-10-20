@@ -272,7 +272,8 @@ task GenerateTranslation
     :: sampling=@
     :: sampling_topp=@
     :: rerank=@
-    :: nbest=@
+    :: rerank_weights=@
+    :: nbest=5
 {
     # TODO: test this
     multilingual_args=""
@@ -295,32 +296,40 @@ task GenerateTranslation
             --remove-bpe $([ "$bpe_type" = "sentencepiece" ] && echo "sentencepiece" || echo "") \
             $([ "$sampling" = true ] && echo "--sampling" || echo "") \
             $([ ! -z "$sampling_topp"  ] && echo "--sampling-topp $sampling_topp" || echo "") \
-            --beam $([ "$rerank" = true ] && echo "$nbest" || echo "5") \
-            $([ "$rerank" = true ] && echo "--nbest $nbest" || echo "") \
+            --beam $([ "$rerank" != true ] && echo "$nbest" || echo "5") \
+            $([ "$rerank" != false ] && echo "--nbest $nbest" || echo "") \
                 > full_outputs 
 
         cat full_outputs | grep ^H | cut -c 3- | sort -n | cut -f2 > $2
         cat full_outputs | grep ^H | cut -c 3- | sort -n | cut -f3- > $3
     }
 
-    generate test test_scores $predictions
-    if [ "$rerank" = true ]; then
-        mv $predictions test_nbest
+    generate test test_scores test_nbest
 
-        generate valid dev_scores dev_nbest
-
+    if [ "$rerank" != false ]; then
+        # TODO: Make this a variable 
+        echo "$rerank_weights" > weights.txt
+        
+        if [ "$rerank" == "train" ]; then
+            generate valid dev_scores dev_nbest
+            python $repo/scripts/rerank_prepare.py \
+                dev_nbest dev_scores dev_features \
+                --nbest $nbest \
+                --add-cometsrc $comet_dir \
+                --src $dev_src
+            
+            mv weights.txt weights_init.txt
+            $repo/scripts/rerank_train.sh weights_init.txt dev_features $dev_tgt > weights.txt
+        fi
         python $repo/scripts/rerank_prepare.py \
             test_nbest test_scores test_features \
             --nbest $nbest \
             --add-cometsrc $comet_dir \
             --src $test_src 
-        python $repo/scripts/rerank_prepare.py \
-            dev_nbest dev_scores dev_features \
-            --nbest $nbest \
-            --add-cometsrc $comet_dir \
-            --src $dev_src 
-        
-        $repo/scripts/mert_rerank.sh dev_features $dev_tgt test_features $predictions
+
+        $repo/scripts/rerank.sh weights.txt test_features > $predictions
+    else
+        mv test_nbest $predictions
     fi
 }
 
