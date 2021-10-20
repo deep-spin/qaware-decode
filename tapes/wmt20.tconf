@@ -1,0 +1,64 @@
+global {
+    ducttape_output="/projects/tir4/users/pfernand/workflows-outputs/qaware-wmt20"
+    ducttape_experimental_imports=true
+    ducttape_experimental_submitters=true
+    submitter="slurm"
+
+    repo=/home/pfernand/repos/qaware-decoding/
+    comet_dir=/projects/tir1/users/pfernand/comet-v3/
+
+    train_dir=""
+    devtest_dir="/projects/tir1/corpora/sentence-mt/wmt20/"
+    
+    pretrained_model="/projects/tir2/users/pfernand/models/wmt19.en-de.joined-dict.single_model/"
+    is_multilingual=False
+    bpe_type=fastbpe
+
+    src_lang=en
+    tgt_lang=de
+
+    # Decoding Arguments
+    infer_batchsize=16
+    sampling=(
+        DecodeType:
+            beam_search=false
+            sampling=true
+            nucleus_80=true
+    )
+    sampling_topp=(
+        DecodeType:
+            beam_search=""
+            sampling=""
+            nucleus_80=0.8
+    )
+
+    rerank=(
+        Rerank:
+            false=false
+            fixed=fixed
+            train=train
+    )
+    rerank_weights=(
+        Rerank:
+            false=""
+            fixed="logprob=0 cometsrc=1"
+            train="logprob=1 cometsrc=0.1"
+    )
+
+    nbest=(
+        NBest:
+            20=20
+            50=50
+            100=100
+    )
+
+    seed=9
+}
+
+plan Baseline {
+    reach ScoreTranslations via (UsePretrained: true)
+}
+
+plan Rerank {
+    reach ScoreTranslations via (UsePretrained: true) * (Rerank: fixed train)
+}

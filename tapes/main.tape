@@ -90,14 +90,16 @@ func ApplyBPE
     > prep_src
     > prep_tgt
     :: repo
+    :: src_lang
+    :: tgt_lang
     :: bpe_type
 {
     python $repo/scripts/bpe_encode.py \
-        --model $bpe_model \
+        --model $bpe_model --bpe-type $bpe_type --lang $src_lang \
             < $raw_src \
             > $prep_src
     python $repo/scripts/bpe_encode.py \
-        --model $bpe_model \
+        --model $bpe_model --bpe-type $bpe_type --lang $tgt_lang \
             < $raw_tgt \
             > $prep_tgt
 }
@@ -109,7 +111,7 @@ task ApplyBPETrain calls ApplyBPE
     < bpe_model=$bpe_model@TrainBPE
     > prep_src
     > prep_tgt
-    :: bpe_type=@ repo=@
+    :: bpe_type=@ src_lang=@ tgt_lang=@ repo=@
 
 
 task ApplyBPEDev calls ApplyBPE
@@ -122,7 +124,7 @@ task ApplyBPEDev calls ApplyBPE
         )
     > prep_src
     > prep_tgt
-    :: bpe_type=@ repo=@
+    :: bpe_type=@ src_lang=@ tgt_lang=@ repo=@
 
 
 task ApplyBPETest calls ApplyBPE
@@ -135,7 +137,7 @@ task ApplyBPETest calls ApplyBPE
         )
     > prep_src
     > prep_tgt
-    :: bpe_type=@ repo=@
+    :: bpe_type=@ src_lang=@ tgt_lang=@ repo=@
 
 
 task BinarizeData
