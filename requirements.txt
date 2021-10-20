@@ -1,4 +1,3 @@
 git+git://github.com/pytorch/fairseq.git@main
-git+git://github.com/CoderPat/COMET.git@main
+git+git://github.com/CoderPat/COMET.git@master
 sentencepiece
-sacrebleu
