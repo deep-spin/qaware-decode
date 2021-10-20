@@ -1,0 +1,52 @@
+global {
+    ducttape_output="/projects/tir4/users/pfernand/workflows-outputs/qaware-flores101"
+    ducttape_experimental_imports=true
+    ducttape_experimental_submitters=true
+    submitter="slurm"
+
+    repo=/home/pfernand/repos/qaware-decoding/
+    comet_dir=/projects/tir1/users/pfernand/comet-v3/
+
+    train_dir=""
+    devtest_dir="/projects/tir1/corpora/sentence-mt/flores101/"
+    
+    pretrained_model=/projects/tir4/users/wmt21/pretrained_models/flores101_mm100_615M
+    is_multilingual=true
+    bpe_type=sentencepiece
+
+    src_lang=en
+    tgt_lang=hu
+
+    # Decoding Arguments
+    infer_batchsize=2
+    sampling=(
+        DecodeType:
+            beam_search=false
+            sampling=true
+            nucleus_80=true
+    )
+    sampling_topp=(
+        DecodeType:
+            beam_search=""
+            sampling=""
+            nucleus_80=0.8
+    )
+
+    rerank=(
+        Rerank:
+            false=false
+            true=true
+    )
+    nbest=(
+        NBest:
+            20=20
+            50=50
+            100=100
+    )
+
+    seed=9
+}
+
+plan Baseline {
+    reach ScoreTranslations via (UsePretrained: true)
+}

@@ -20,10 +20,10 @@ task GetDevTestData
     :: tgt_lang=@
 {
 
-    ln -s $devtest_dir/valid.${src_lang} $dev_src
-    ln -s $devtest_dir/valid.${tgt_lang} $dev_tgt
+    ln -s $devtest_dir/dev.${src_lang} $dev_src
+    ln -s $devtest_dir/dev.${tgt_lang} $dev_tgt
     ln -s $devtest_dir/test.${src_lang} $test_src
-    ln -s $devtest_dir/test.${src_lang} $test_tgt
+    ln -s $devtest_dir/test.${tgt_lang} $test_tgt
 }
 
 
@@ -32,6 +32,8 @@ task GetPretrained
     > bpe_model
     > src_dict
     > tgt_dict
+    :: src_lang=@
+    :: tgt_lang=@
     :: is_multilingual=@
     :: bpe_type=@
 {
@@ -47,6 +49,7 @@ task GetPretrained
 
     # multilingual models only come with one dict
     if [ "$is_multilingual" = true ]; then
+        echo "xxx"
         ln -s $pretrained_model/dict.txt $src_dict
         ln -s $pretrained_model/dict.txt $tgt_dict
     else
@@ -132,7 +135,7 @@ task ApplyBPETest calls ApplyBPE
         )
     > prep_src
     > prep_tgt
-    :: bpe_type=@
+    :: bpe_type=@ repo=@
 
 
 task BinarizeData
@@ -146,10 +149,10 @@ task BinarizeData
             true=/dev/null
             false=$prep_tgt@ApplyBPETrain
         )
-    < dev_src=@GetDevTestData
-    < dev_tgt=@GetDevTestData
-    < test_src=@GetDevTestData
-    < test_tgt=@GetDevTestData
+    < dev_src=$prep_src@ApplyBPEDev
+    < dev_tgt=$prep_tgt@ApplyBPEDev
+    < test_src=$prep_src@ApplyBPETest
+    < test_tgt=$prep_tgt@ApplyBPETest
     < src_dict=(
         UsePretrained:
             true=$src_dict@GetPretrained
@@ -161,7 +164,7 @@ task BinarizeData
             false=$src_dict@TrainBPE
         )
     > bin_dir
-    :: .submitter=@ .cpus=8 .mem=32000M
+    :: .submitter=@ .cpus=8 .mem=32000M .exclude=tir-1-11
     :: repo=@
     :: src_lang=@
     :: tgt_lang=@
@@ -195,7 +198,7 @@ task TrainModel
     < tgt_dict=@TrainBPE
     < bpe_model=@TrainBPE
     > model_dir
-    :: .submitter=@ .mem=16000 .gres="gpu:1" .cpus=2
+    :: .submitter=@ .mem=16000 .gres="gpu:1" .cpus=2 
     :: src_lang=@
     :: tgt_lang=@
     :: bpe_type=@
@@ -274,10 +277,10 @@ task GenerateTranslation
     # TODO: test this
     multilingual_args=""
     if [ "$is_multilingual" = true ]; then
-        multilingual_args+="\\\n --task translation_multi_simple_epoch"
-        multilingual_args+="\\\n --decoder-langtok --encoder-langtok src"
-        multilingual_args+="\\\n --lang-pairs $model_dir/language_pairs.txt"
-        multilingual_args+="\\\n --fixed-dictionary $model_dir/dict.txt"
+        multilingual_args+="--task translation_multi_simple_epoch "
+        multilingual_args+="--decoder-langtok --encoder-langtok src "
+        multilingual_args+="--lang-pairs $model_dir/language_pairs.txt "
+        multilingual_args+="--fixed-dictionary $model_dir/dict.txt "
     fi
 
     generate () {

@@ -14,7 +14,7 @@ test_hyp=$4
 
 mkdir -p rerank_models
 
-echo "logprob=1 cometsrc=0.1 numtokens=0.1" > weight_in.txt
+echo "logprob=1 cometsrc=0.1" > weight_in.txt
 
 # tune rerank weights on validation set
 save_model_name=rerank.weights
