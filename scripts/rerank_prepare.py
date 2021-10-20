@@ -43,7 +43,7 @@ def main():
         comet_input = [
             {"src": src, "mt": mt} for src, mt in src_hyp_iterator(srcs, hyps)
         ]
-        _, comet_scores = comet_model.predict(
+        comet_scores, _ = comet_model.predict(
             comet_input, num_workers=4
         )
 
