@@ -211,7 +211,7 @@ task TrainModel
     lr=5e-4
     arch=transformer_iwslt_de_en
     patience=5
-    max_epoch=1
+    max_epoch=100
     max_tokens=4096
     update_freq=8
 
