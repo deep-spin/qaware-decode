@@ -308,7 +308,7 @@ task GenerateTranslationsDev calls GenerateTranslations
         )
     > scores
     > predictions
-    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0
     :: split=valid
     :: repo=@
     :: src_lang=@
@@ -331,7 +331,7 @@ task GenerateTranslationsTest calls GenerateTranslations
         )
     > scores
     > predictions
-    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0
     :: split=test
     :: repo=@
     :: src_lang=@
@@ -354,7 +354,7 @@ task RerankTranslations
     < test_scores=$scores@GenerateTranslationsTest
     < test_nbest=$predictions@GenerateTranslationsTest
     > predictions
-    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0
     :: repo=@
     :: comet_dir=@
     :: rerank=@
