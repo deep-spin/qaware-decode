@@ -1,5 +1,5 @@
 global {
-    ducttape_output="/projects/tir4/users/pfernand/workflows-outputs/qaware-iwslt14"
+    ducttape_output="/projects/tir4/users/pfernand/workflows-outputs/qaware-flores101"
     ducttape_experimental_imports=true
     ducttape_experimental_submitters=true
     submitter="slurm"
@@ -7,18 +7,18 @@ global {
     repo=/home/pfernand/repos/qaware-decoding/
     comet_dir=/projects/tir1/users/pfernand/comet-v3/
 
-    train_dir="/projects/tir1/corpora/contextual_mt/iwslt2017/en-de/"
-    devtest_dir="/projects/tir1/corpora/contextual_mt/iwslt2017/en-de/"
+    train_dir=""
+    devtest_dir="/projects/tir1/corpora/sentence-mt/flores101/"
     
-    pretrained_model=""
-    is_multilingual=False
+    pretrained_model=/projects/tir4/users/wmt21/pretrained_models/flores101_mm100_615M
+    is_multilingual=true
     bpe_type=sentencepiece
 
     src_lang=en
-    tgt_lang=de
+    tgt_lang=hu
 
     # Decoding Arguments
-    infer_batchsize=16
+    infer_batchsize=2
     sampling=(
         DecodeType:
             beam_search=false
@@ -57,9 +57,9 @@ global {
 }
 
 plan Baseline {
-    reach ScoreTranslations via (UsePretrained: false)
+    reach ScoreTranslations via (UsePretrained: true)
 }
 
 plan Rerank {
-    reach ScoreTranslations via (UsePretrained: false) * (Rerank: fixed train)
+    reach ScoreTranslations via (UsePretrained: true) * (Rerank: fixed train)
 }

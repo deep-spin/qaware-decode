@@ -1,5 +1,5 @@
 global {
-    ducttape_output="/projects/tir4/users/pfernand/workflows-outputs/qaware-iwslt14"
+    ducttape_output="/projects/tir4/users/pfernand/workflows-outputs/qaware-wmt20"
     ducttape_experimental_imports=true
     ducttape_experimental_submitters=true
     submitter="slurm"
@@ -7,15 +7,28 @@ global {
     repo=/home/pfernand/repos/qaware-decoding/
     comet_dir=/projects/tir1/users/pfernand/comet-v3/
 
-    train_dir="/projects/tir1/corpora/contextual_mt/iwslt2017/en-de/"
-    devtest_dir="/projects/tir1/corpora/contextual_mt/iwslt2017/en-de/"
+    train_dir=""
+    devtest_dir=(
+        TargetLang:
+            de="/projects/tir1/corpora/sentence-mt/wmt20/en-de/"
+            ru="/projects/tir1/corpora/sentence-mt/wmt20/en-ru/"
+    )
     
-    pretrained_model=""
+    pretrained_model=(
+        TargetLang:
+            de="/projects/tir2/users/pfernand/models/wmt19.en-de.joined-dict.single_model/"
+            ru="/projects/tir2/users/pfernand/models/wmt19.en-ru.single_model/"
+    )
+            
     is_multilingual=False
-    bpe_type=sentencepiece
+    bpe_type=fastbpe
 
     src_lang=en
-    tgt_lang=de
+    tgt_lang=(
+        TargetLang:
+            de="de"
+            ru="ru"
+    )
 
     # Decoding Arguments
     infer_batchsize=16
@@ -51,15 +64,16 @@ global {
             20=20
             50=50
             100=100
+            200=200
     )
 
     seed=9
 }
 
 plan Baseline {
-    reach ScoreTranslations via (UsePretrained: false)
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *)
 }
 
 plan Rerank {
-    reach ScoreTranslations via (UsePretrained: false) * (Rerank: fixed train)
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: *) * (Rerank: fixed train) * (NBest: *)
 }

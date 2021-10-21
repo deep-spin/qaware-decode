@@ -20,10 +20,10 @@ task GetDevTestData
     :: tgt_lang=@
 {
 
-    ln -s $devtest_dir/valid.${src_lang} $dev_src
-    ln -s $devtest_dir/valid.${tgt_lang} $dev_tgt
+    ln -s $devtest_dir/dev.${src_lang} $dev_src
+    ln -s $devtest_dir/dev.${tgt_lang} $dev_tgt
     ln -s $devtest_dir/test.${src_lang} $test_src
-    ln -s $devtest_dir/test.${src_lang} $test_tgt
+    ln -s $devtest_dir/test.${tgt_lang} $test_tgt
 }
 
 
@@ -32,6 +32,8 @@ task GetPretrained
     > bpe_model
     > src_dict
     > tgt_dict
+    :: src_lang=@
+    :: tgt_lang=@
     :: is_multilingual=@
     :: bpe_type=@
 {
@@ -87,14 +89,16 @@ func ApplyBPE
     > prep_src
     > prep_tgt
     :: repo
+    :: src_lang
+    :: tgt_lang
     :: bpe_type
 {
     python $repo/scripts/bpe_encode.py \
-        --model $bpe_model \
+        --model $bpe_model --bpe-type $bpe_type --lang $src_lang \
             < $raw_src \
             > $prep_src
     python $repo/scripts/bpe_encode.py \
-        --model $bpe_model \
+        --model $bpe_model --bpe-type $bpe_type --lang $tgt_lang \
             < $raw_tgt \
             > $prep_tgt
 }
@@ -106,7 +110,7 @@ task ApplyBPETrain calls ApplyBPE
     < bpe_model=$bpe_model@TrainBPE
     > prep_src
     > prep_tgt
-    :: bpe_type=@ repo=@
+    :: bpe_type=@ src_lang=@ tgt_lang=@ repo=@
 
 
 task ApplyBPEDev calls ApplyBPE
@@ -119,7 +123,7 @@ task ApplyBPEDev calls ApplyBPE
         )
     > prep_src
     > prep_tgt
-    :: bpe_type=@ repo=@
+    :: bpe_type=@ src_lang=@ tgt_lang=@ repo=@
 
 
 task ApplyBPETest calls ApplyBPE
@@ -132,7 +136,7 @@ task ApplyBPETest calls ApplyBPE
         )
     > prep_src
     > prep_tgt
-    :: bpe_type=@
+    :: bpe_type=@ src_lang=@ tgt_lang=@ repo=@
 
 
 task BinarizeData
@@ -146,10 +150,10 @@ task BinarizeData
             true=/dev/null
             false=$prep_tgt@ApplyBPETrain
         )
-    < dev_src=@GetDevTestData
-    < dev_tgt=@GetDevTestData
-    < test_src=@GetDevTestData
-    < test_tgt=@GetDevTestData
+    < dev_src=$prep_src@ApplyBPEDev
+    < dev_tgt=$prep_tgt@ApplyBPEDev
+    < test_src=$prep_src@ApplyBPETest
+    < test_tgt=$prep_tgt@ApplyBPETest
     < src_dict=(
         UsePretrained:
             true=$src_dict@GetPretrained
@@ -157,11 +161,11 @@ task BinarizeData
         )
     < tgt_dict=(
         UsePretrained:
-            true=$src_dict@GetPretrained
-            false=$src_dict@TrainBPE
+            true=$tgt_dict@GetPretrained
+            false=$tgt_dict@TrainBPE
         )
     > bin_dir
-    :: .submitter=@ .cpus=8 .mem=32000M
+    :: .submitter=@ .cpus=8 .mem=32000M .exclude=tir-1-11
     :: repo=@
     :: src_lang=@
     :: tgt_lang=@
@@ -195,7 +199,7 @@ task TrainModel
     < tgt_dict=@TrainBPE
     < bpe_model=@TrainBPE
     > model_dir
-    :: .submitter=@ .mem=16000 .gres="gpu:1" .cpus=2
+    :: .submitter=@ .mem=16000 .gres="gpu:1" .cpus=2 
     :: src_lang=@
     :: tgt_lang=@
     :: bpe_type=@
@@ -247,18 +251,65 @@ task TrainModel
     mv $model_dir/checkpoint_best.pt $model_dir/model.pt
 }
 
-task GenerateTranslation
+func GenerateTranslations
+    < bin_dir
+    < model_dir
+    > scores
+    > predictions
+    :: split
+    :: repo
+    :: src_lang
+    :: tgt_lang
+    :: comet_dir
+    :: bpe_type
+    :: is_multilingual
+    :: infer_batchsize
+    :: sampling
+    :: sampling_topp
+    :: nbest
+{
+    # TODO: test this
+    multilingual_args=""
+    if [ "$is_multilingual" = true ]; then
+        multilingual_args+="--task translation_multi_simple_epoch "
+        multilingual_args+="--decoder-langtok --encoder-langtok src "
+        multilingual_args+="--lang-pairs $model_dir/language_pairs.txt "
+        multilingual_args+="--fixed-dictionary $model_dir/dict.txt "
+    fi
+
+    fairseq-generate \
+        $bin_dir \
+        --fp16 \
+        -s $src_lang -t $tgt_lang \
+        --gen-subset $split \
+        --batch-size $infer_batchsize \
+        --path $model_dir/model.pt \
+        $multilingual_args \
+        --remove-bpe $([ "$bpe_type" = "sentencepiece" ] && echo "sentencepiece" || echo "") \
+        $([ "$bpe_type" = "fastbpe" ] && echo "--tokenizer moses" || echo "")  \
+        $([ "$sampling" = true ] && echo "--sampling" || echo "") \
+        $([ ! -z "$sampling_topp"  ] && echo "--sampling-topp $sampling_topp" || echo "") \
+        --beam $nbest \
+        --nbest $nbest \
+            > full_outputs 
+
+        cat full_outputs | grep ^H | cut -c 3- | sort -n | cut -f2 > $scores
+        cat full_outputs | grep ^H | cut -c 3- | sort -n | cut -f3- | \
+            $([ "$bpe_type" = "fastbpe" ] && echo "sacremoses -l ${tgt_lang} detokenize" || echo "tee") > $predictions
+}
+
+
+task GenerateTranslationsDev calls GenerateTranslations
     < bin_dir=@BinarizeData
-    < dev_src=@GetDevTestData
-    < dev_tgt=@GetDevTestData
-    < test_src=@GetDevTestData
     < model_dir=(
         UsePretrained:
             true=$pretrained_model
             false=$model_dir@TrainModel
         )
+    > scores
     > predictions
     :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M
+    :: split=valid
     :: repo=@
     :: src_lang=@
     :: tgt_lang=@
@@ -268,63 +319,78 @@ task GenerateTranslation
     :: infer_batchsize=@
     :: sampling=@
     :: sampling_topp=@
+    :: nbest=@
+
+
+task GenerateTranslationsTest calls GenerateTranslations
+    < bin_dir=@BinarizeData
+    < model_dir=(
+        UsePretrained:
+            true=$pretrained_model
+            false=$model_dir@TrainModel
+        )
+    > scores
+    > predictions
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M
+    :: split=test
+    :: repo=@
+    :: src_lang=@
+    :: tgt_lang=@
+    :: comet_dir=@
+    :: bpe_type=@
+    :: is_multilingual=@
+    :: infer_batchsize=@
+    :: sampling=@
+    :: sampling_topp=@
+    :: nbest=@
+
+
+task RerankTranslations
+    < dev_src=@GetDevTestData
+    < dev_tgt=@GetDevTestData
+    < dev_scores=$scores@GenerateTranslationsDev
+    < dev_nbest=$predictions@GenerateTranslationsDev
+    < test_src=@GetDevTestData
+    < test_scores=$scores@GenerateTranslationsTest
+    < test_nbest=$predictions@GenerateTranslationsTest
+    > predictions
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M
+    :: repo=@
+    :: comet_dir=@
     :: rerank=@
+    :: rerank_weights=@
     :: nbest=@
 {
-    # TODO: test this
-    multilingual_args=""
-    if [ "$is_multilingual" = true ]; then
-        multilingual_args+="\\\n --task translation_multi_simple_epoch"
-        multilingual_args+="\\\n --decoder-langtok --encoder-langtok src"
-        multilingual_args+="\\\n --lang-pairs $model_dir/language_pairs.txt"
-        multilingual_args+="\\\n --fixed-dictionary $model_dir/dict.txt"
-    fi
-
-    generate () {
-        fairseq-generate \
-            $bin_dir \
-            --fp16 \
-            -s $src_lang -t $tgt_lang \
-            --gen-subset $1 \
-            --batch-size $infer_batchsize \
-            --path $model_dir/model.pt \
-            $multilingual_args \
-            --remove-bpe $([ "$bpe_type" = "sentencepiece" ] && echo "sentencepiece" || echo "") \
-            $([ "$sampling" = true ] && echo "--sampling" || echo "") \
-            $([ ! -z "$sampling_topp"  ] && echo "--sampling-topp $sampling_topp" || echo "") \
-            --beam $([ "$rerank" = true ] && echo "$nbest" || echo "5") \
-            $([ "$rerank" = true ] && echo "--nbest $nbest" || echo "") \
-                > full_outputs 
-
-        cat full_outputs | grep ^H | cut -c 3- | sort -n | cut -f2 > $2
-        cat full_outputs | grep ^H | cut -c 3- | sort -n | cut -f3- > $3
-    }
-
-    generate test test_scores $predictions
-    if [ "$rerank" = true ]; then
-        mv $predictions test_nbest
-
-        generate valid dev_scores dev_nbest
-
+    if [ "$rerank" != false ]; then
+        echo "$rerank_weights" > weights.txt
+        
+        if [ "$rerank" == "train" ]; then
+            python $repo/scripts/rerank_prepare.py \
+                $dev_nbest $dev_scores dev_features \
+                --nbest $nbest \
+                --add-cometsrc $comet_dir \
+                --src $dev_src
+            
+            mv weights.txt weights_init.txt
+            $repo/scripts/rerank_train.sh weights_init.txt dev_features $dev_tgt > weights.txt
+        fi
         python $repo/scripts/rerank_prepare.py \
-            test_nbest test_scores test_features \
+            $test_nbest $test_scores test_features \
             --nbest $nbest \
             --add-cometsrc $comet_dir \
             --src $test_src 
-        python $repo/scripts/rerank_prepare.py \
-            dev_nbest dev_scores dev_features \
-            --nbest $nbest \
-            --add-cometsrc $comet_dir \
-            --src $dev_src 
-        
-        $repo/scripts/mert_rerank.sh dev_features $dev_tgt test_features $predictions
+
+        $repo/scripts/rerank.sh weights.txt test_features > $predictions
+    else
+        awk "NR % $nbest == 1" $test_nbest > $predictions 
     fi
 }
+
 
 task ScoreTranslations
     < test_src=@GetDevTestData
     < test_tgt=@GetDevTestData
-    < predictions=@GenerateTranslation
+    < predictions=@RerankTranslations
     > score
     :: .submitter=@ .gres="gpu:1" .cpus=4 .mem=16000M
     :: repo=@
@@ -336,6 +402,7 @@ task ScoreTranslations
         $predictions $test_tgt --src $test_src \
         --comet $comet_dir > $score
 }
+
 
 summary TranslationQuality {
   of ScoreTranslations >  bleu comet {
