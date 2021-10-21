@@ -62,7 +62,7 @@ def main():
             use_cuda=torch.cuda.is_available()
         )
         transquest_input = [[src, mt] for src, mt in src_hyp_iterator(srcs, hyps)]
-        transquest_scores, _ = model.predict(transquest_input)
+        transquest_scores, _ = transquest_model.predict(transquest_input)
 
     with open(args.formatted, "w", encoding='utf-8') as formatted_f:
         for i, (hyp, score) in enumerate(zip(hyps, scores)):
