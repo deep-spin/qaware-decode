@@ -5,6 +5,7 @@ global {
     submitter="slurm"
 
     repo=/home/pfernand/repos/qaware-decoding/
+    # directory that holds COMET *models*
     comet_dir=/projects/tir1/users/pfernand/comet-v3/
 
     train_dir="/projects/tir1/corpora/contextual_mt/iwslt2017/en-de/"

@@ -429,13 +429,15 @@ task ScoreTranslations
 {
     python $repo/scripts/score.py \
         $predictions $test_tgt --src $test_src \
-        --comet $comet_dir > $score
+        --comet_model_dir $comet_dir > $score
 }
 
 
 summary TranslationQuality {
-  of ScoreTranslations >  bleu comet {
+  of ScoreTranslations >  bleu comet chrf ter {
     cat $score | grep -oP "COMET = \K[-0-9.]+" > $comet
     cat $score | grep -oP "BLEU = \K[-0-9.]+" > $bleu
+    cat $score | grep -oP "chrF2 = \K[-0-9.]+" > $chrf
+    cat $score | grep -oP "TER = \K[-0-9.]+" > $ter
   }
 }
