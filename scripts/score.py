@@ -1,7 +1,11 @@
 import argparse
-
+import numpy as np
 import sacrebleu
 from comet import download_model, load_from_checkpoint
+
+from bleurt import score
+
+
 
 COMET_MODEL = "wmt20-comet-da"
 
@@ -10,7 +14,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("hyp", type=str)
     parser.add_argument("ref", type=str)
-    parser.add_argument("--comet_model_dir", type=str)
+    parser.add_argument("--comet_model_dir", type=str, default=None)
+    parser.add_argument("--bleurt_model_dir", type=str, default=None)
     parser.add_argument("--src", type=str)
     parser.add_argument("--save_segment_level", default=None)
 
@@ -57,6 +62,18 @@ def main():
             sentence_metrics[i].append(("comet", comet_sentscore))
 
         print(f"COMET = {comet_score:.4f}")
+
+    # gets BLEURT scores
+    if args.bleurt_model_dir is not None:
+        checkpoint = args.bleurt_model_dir
+      
+        bleurt_scorer = score.BleurtScorer(checkpoint)
+        bleurt_scores = bleurt_scorer.score(references=refs, candidates=hyps)
+        assert type(bleurt_scores) == list
+        # corpus-level BLEURT
+        print(f"BLEURT = {np.array(bleurt_scores).mean()}")
+        for i, bleurt_score in enumerate(bleurt_scores):
+            sentence_metrics[i].append(("bleurt", bleurt_score))
 
     # saves segment-level scores to the disk
     if args.save_segment_level is not None:
