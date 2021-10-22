@@ -1,11 +1,6 @@
 import argparse
 import numpy as np
 import sacrebleu
-from comet import download_model, load_from_checkpoint
-
-from bleurt import score
-
-
 
 COMET_MODEL = "wmt20-comet-da"
 
@@ -44,6 +39,8 @@ def main():
             sentence_metrics[i].append(("ter", sacrebleu.sentence_ter(hyp, [ref]).score))
 
     if args.comet_model_dir is not None:
+        from comet import download_model, load_from_checkpoint
+
         assert args.src is not None, "source needs to be provided to use COMET"
         with open(args.src) as src_f:
             srcs = [line.strip() for line in src_f.readlines()]
@@ -65,6 +62,8 @@ def main():
 
     # gets BLEURT scores
     if args.bleurt_model_dir is not None:
+        from bleurt import score
+
         checkpoint = args.bleurt_model_dir
       
         bleurt_scorer = score.BleurtScorer(checkpoint)
