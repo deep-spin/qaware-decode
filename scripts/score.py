@@ -1,22 +1,18 @@
 import argparse
-from collections import Counter
-
-from comet import download_model, load_from_checkpoint
 
 import sacrebleu
-from sacrebleu.compat import sentence_bleu
+from comet import download_model, load_from_checkpoint
 
-
-COMET_MODEL="wmt20-comet-da"
+COMET_MODEL = "wmt20-comet-da"
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("hyp", type=str)
     parser.add_argument("ref", type=str)
-    parser.add_argument("--comet", type=str)
+    parser.add_argument("--comet_model_dir", type=str)
     parser.add_argument("--src", type=str)
-    parser.add_argument("--save-segment-level", default=None)
+    parser.add_argument("--save_segment_level", default=None)
 
     args = parser.parse_args()
 
@@ -27,29 +23,42 @@ def main():
 
     sentence_metrics = [[] for _ in range(len(refs))]
 
+    # gets corpus-level non-ml evaluation metrics
+    # corpus-level BLEU
     print(sacrebleu.corpus_bleu(hyps, [refs]).format())
-    for i, (hyp, ref) in enumerate(zip(hyps, refs)):
-        sentence_metrics[i].append(("bleu", sacrebleu.sentence_bleu(hyp, [ref]).score))
+    # corpus-level chrF
+    print(sacrebleu.corpus_chrf(hyps, [refs]).format())
+    # corpus-level TER
+    print(sacrebleu.corpus_ter(hyps, [refs]).format())
 
-    if args.comet is not None:
+    if args.save_segment_level is not None:
+        # gets sentence-level non-ml metrics
+        for i, (hyp, ref) in enumerate(zip(hyps, refs)):
+            sentence_metrics[i].append(("bleu", sacrebleu.sentence_bleu(hyp, [ref]).score))
+            sentence_metrics[i].append(("chrf", sacrebleu.sentence_chrf(hyp, [ref]).score))
+            sentence_metrics[i].append(("ter", sacrebleu.sentence_ter(hyp, [ref]).score))
+
+    if args.comet_model_dir is not None:
         assert args.src is not None, "source needs to be provided to use COMET"
         with open(args.src) as src_f:
             srcs = [line.strip() for line in src_f.readlines()]
 
         # download comet and load
-        comet_path = download_model(COMET_MODEL, args.comet)
+        comet_path = download_model(COMET_MODEL, args.comet_model_dir)
         comet_model = load_from_checkpoint(comet_path)
 
-        print("running comet evaluation....")
+        print("Running COMET evaluation...")
         comet_input = [
             {"src": src, "mt": mt, "ref": ref} for src, mt, ref in zip(srcs, hyps, refs)
         ]
-        comet_sentscores, comet_score = comet_model.predict(comet_input, num_workers=4)
+        # sentence-level and corpus-level COMET
+        comet_sentscores, comet_score = comet_model.predict(comet_input)
         for i, comet_sentscore in enumerate(comet_sentscores):
             sentence_metrics[i].append(("comet", comet_sentscore))
 
         print(f"COMET = {comet_score:.4f}")
 
+    # saves segment-level scores to the disk
     if args.save_segment_level is not None:
         with open(args.save_segment_level, "w") as f:
             for metrics in sentence_metrics:
