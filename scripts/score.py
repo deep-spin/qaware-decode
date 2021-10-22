@@ -9,10 +9,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("hyp", type=str)
     parser.add_argument("ref", type=str)
-    parser.add_argument("--comet_model_dir", type=str, default=None)
-    parser.add_argument("--bleurt_model_dir", type=str, default=None)
+    parser.add_argument("--no-lexical-metrics", action="store_true")
+    parser.add_argument("--comet-dir", type=str, default=None)
+    parser.add_argument("--bleurt-dir", type=str, default=None)
     parser.add_argument("--src", type=str)
-    parser.add_argument("--save_segment_level", default=None)
+    parser.add_argument("--save-segment-level", default=None)
 
     args = parser.parse_args()
 
@@ -23,22 +24,23 @@ def main():
 
     sentence_metrics = [[] for _ in range(len(refs))]
 
-    # gets corpus-level non-ml evaluation metrics
-    # corpus-level BLEU
-    print(sacrebleu.corpus_bleu(hyps, [refs]).format())
-    # corpus-level chrF
-    print(sacrebleu.corpus_chrf(hyps, [refs]).format())
-    # corpus-level TER
-    print(sacrebleu.corpus_ter(hyps, [refs]).format())
+    if not args.no_lexical_metrics:
+        # gets corpus-level non-ml evaluation metrics
+        # corpus-level BLEU
+        print(sacrebleu.corpus_bleu(hyps, [refs]).format())
+        # corpus-level chrF
+        print(sacrebleu.corpus_chrf(hyps, [refs]).format())
+        # corpus-level TER
+        print(sacrebleu.corpus_ter(hyps, [refs]).format())
 
-    if args.save_segment_level is not None:
-        # gets sentence-level non-ml metrics
-        for i, (hyp, ref) in enumerate(zip(hyps, refs)):
-            sentence_metrics[i].append(("bleu", sacrebleu.sentence_bleu(hyp, [ref]).score))
-            sentence_metrics[i].append(("chrf", sacrebleu.sentence_chrf(hyp, [ref]).score))
-            sentence_metrics[i].append(("ter", sacrebleu.sentence_ter(hyp, [ref]).score))
+        if args.save_segment_level is not None:
+            # gets sentence-level non-ml metrics
+            for i, (hyp, ref) in enumerate(zip(hyps, refs)):
+                sentence_metrics[i].append(("bleu", sacrebleu.sentence_bleu(hyp, [ref]).score))
+                sentence_metrics[i].append(("chrf", sacrebleu.sentence_chrf(hyp, [ref]).score))
+                sentence_metrics[i].append(("ter", sacrebleu.sentence_ter(hyp, [ref]).score))
 
-    if args.comet_model_dir is not None:
+    if args.comet_dir is not None:
         from comet import download_model, load_from_checkpoint
 
         assert args.src is not None, "source needs to be provided to use COMET"
@@ -46,7 +48,7 @@ def main():
             srcs = [line.strip() for line in src_f.readlines()]
 
         # download comet and load
-        comet_path = download_model(COMET_MODEL, args.comet_model_dir)
+        comet_path = download_model(COMET_MODEL, args.comet_dir)
         comet_model = load_from_checkpoint(comet_path)
 
         print("Running COMET evaluation...")
@@ -61,10 +63,10 @@ def main():
         print(f"COMET = {comet_score:.4f}")
 
     # gets BLEURT scores
-    if args.bleurt_model_dir is not None:
+    if args.bleurt_dir is not None:
         from bleurt import score
 
-        checkpoint = args.bleurt_model_dir
+        checkpoint = args.bleurt_dir
       
         bleurt_scorer = score.BleurtScorer(checkpoint)
         bleurt_scores = bleurt_scorer.score(references=refs, candidates=hyps)

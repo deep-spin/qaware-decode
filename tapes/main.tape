@@ -363,7 +363,7 @@ task ComputeFeaturesDev
         --add-cometsrc $comet_dir \
         --src $src
     
-    awk "{while(++i<$nbest)print;i=0}" $tgt > tgt_repeat
+    awk "{while(i++<$nbest)print;i=0}" $tgt > tgt_repeat
     python $repo/scripts/score.py $pred_nbest tgt_repeat --save-segment-level $metrics
 }
 
@@ -391,6 +391,7 @@ task RerankTranslations
     < dev_tgt=@GetDevTestData
     < dev_features=$features@ComputeFeaturesDev
     < dev_metrics=$metrics@ComputeFeaturesDev
+    < test_nbest=$predictions@GenerateTranslationsTest
     < test_features=$features@ComputeFeaturesTest
     > predictions
     :: .submitter=@ .cpus=5 .mem=32000M .time=0
@@ -426,18 +427,28 @@ task ScoreTranslations
     :: src_lang=@
     :: tgt_lang=@
     :: comet_dir=@
+    :: bleurt_dir=@
+    :: bleurt_venv=@
 {
     python $repo/scripts/score.py \
         $predictions $test_tgt --src $test_src \
-        --comet_model_dir $comet_dir > $score
+        --comet-dir $comet_dir > $score
+
+    if [ ! -z "$bleurt_dir"  ] && [ ! -z "$bleurt_venv" ]; then
+        source $bleurt_venv/bin/activate
+        python $repo/scripts/score.py \
+            $predictions $test_tgt --src $test_src \
+            --bleurt-dir $bleurt_dir \
+            --no-lexical-metrics >> $score
 }
 
 
 summary TranslationQuality {
-  of ScoreTranslations >  bleu comet chrf ter {
+  of ScoreTranslations >  bleu comet chrf ter bleurt {
     cat $score | grep -oP "COMET = \K[-0-9.]+" > $comet
     cat $score | grep -oP "BLEU = \K[-0-9.]+" > $bleu
     cat $score | grep -oP "chrF2 = \K[-0-9.]+" > $chrf
     cat $score | grep -oP "TER = \K[-0-9.]+" > $ter
+    cat $score | grep -oP "BLEURT = \K[-0-9.]+" > $bleurt
   }
 }

@@ -6,6 +6,8 @@ global {
 
     repo=/home/pfernand/repos/qaware-decoding/
     comet_dir=/projects/tir1/users/pfernand/comet-v3/
+    bleurt_dir=/projects/tir1/users/pfernand/bleurt/
+    bleurt_venv=/home/pfernand/repos/qaware-decoding/.bleurt_venv
 
     train_dir=""
     devtest_dir=(
@@ -100,5 +102,5 @@ plan Baseline {
 }
 
 plan Rerank {
-    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: *) * (NBest: *) * (Rerank: fixed) * (RerankMetric: cometsrc transquest)
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: *) * (NBest: *) * (Rerank: fixed train) * (RerankMetric: cometsrc transquest)
 }
