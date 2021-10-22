@@ -450,8 +450,9 @@ summary TranslationQuality {
     cat $score | grep -oP "BLEU = \K[-0-9.]+" > $bleu
     cat $score | grep -oP "chrF2 = \K[-0-9.]+" > $chrf
     cat $score | grep -oP "TER = \K[-0-9.]+" > $ter
-    cat $score | grep -oP "BLEURT = \K[-0-9.]+" > $bleurt
-    if [ -s $bleurt ]; then
+    cat $score | grep -oP "BLEURT = \K[-0-9.]+" > $bleurt || true
+    if [ ! -s $bleurt ]; then
         echo "---" > $bleurt
-  }
+    fi  
+   }
 }
