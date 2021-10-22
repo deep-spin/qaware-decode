@@ -18,7 +18,7 @@ def main():
     parser.add_argument("--spm", default=False)
     parser.add_argument("--nbest", required=True, type=int)
     parser.add_argument("--add-cometsrc", default=None)
-    parser.add_argument("--add-transquest", default=None)
+    parser.add_argument("--add-transquest", action="store_true")
     parser.add_argument("--comet-path", default=None)
     parser.add_argument("--src", default=None)
     args = parser.parse_args()
@@ -51,7 +51,7 @@ def main():
             comet_input, num_workers=4
         )
 
-    if args.add_transquest is not None:
+    if args.add_transquest:
         assert args.src is not None, "source needs to be provided to use COMET"
         with open(args.src, encoding='utf-8') as src_f:
             srcs = [line.strip() for line in src_f.readlines()]
@@ -73,7 +73,7 @@ def main():
             if args.add_cometsrc is not None:
                 features.append(f"cometsrc={comet_scores[i]}")
             
-            if args.add_transquest is not None:
+            if args.add_transquest:
                 features.append(f"transquest={transquest_scores[i]}")
             
 

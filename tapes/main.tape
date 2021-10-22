@@ -345,16 +345,55 @@ task GenerateTranslationsTest calls GenerateTranslations
     :: nbest=@
 
 
-task RerankTranslations
-    < dev_src=@GetDevTestData
-    < dev_tgt=@GetDevTestData
-    < dev_scores=$scores@GenerateTranslationsDev
-    < dev_nbest=$predictions@GenerateTranslationsDev
-    < test_src=@GetDevTestData
-    < test_scores=$scores@GenerateTranslationsTest
-    < test_nbest=$predictions@GenerateTranslationsTest
-    > predictions
+task ComputeFeaturesDev
+    < src=$dev_src@GetDevTestData
+    < tgt=$dev_tgt@GetDevTestData
+    < scores=@GenerateTranslationsDev
+    < pred_nbest=$predictions@GenerateTranslationsDev
+    > features
+    > metrics
     :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0
+    :: repo=@
+    :: comet_dir=@
+    :: nbest=@
+{
+    python $repo/scripts/rerank_prepare.py \
+        $pred_nbest $scores $features \
+        --nbest $nbest \
+        --add-cometsrc $comet_dir \
+        --src $src
+    
+    awk "{while(++i<$nbest)print;i=0}" $tgt > tgt_repeat
+    python $repo/scripts/score.py $pred_nbest tgt_repeat --save-segment-level $metrics
+}
+
+
+task ComputeFeaturesTest
+    < src=$test_src@GetDevTestData
+    < tgt=$test_tgt@GetDevTestData
+    < scores=@GenerateTranslationsTest
+    < pred_nbest=$predictions@GenerateTranslationsTest
+    > features
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0
+    :: repo=@
+    :: comet_dir=@
+    :: nbest=@
+{
+    python $repo/scripts/rerank_prepare.py \
+        $pred_nbest $scores $features \
+        --nbest $nbest \
+        --add-cometsrc $comet_dir \
+        --src $src
+}
+
+
+task RerankTranslations
+    < dev_tgt=@GetDevTestData
+    < dev_features=$features@ComputeFeaturesDev
+    < dev_metrics=$metrics@ComputeFeaturesDev
+    < test_features=$features@ComputeFeaturesTest
+    > predictions
+    :: .submitter=@ .cpus=5 .mem=32000M .time=0
     :: repo=@
     :: comet_dir=@
     :: rerank=@
@@ -365,22 +404,10 @@ task RerankTranslations
         echo "$rerank_weights" > weights.txt
         
         if [ "$rerank" == "train" ]; then
-            python $repo/scripts/rerank_prepare.py \
-                $dev_nbest $dev_scores dev_features \
-                --nbest $nbest \
-                --add-cometsrc $comet_dir \
-                --src $dev_src
-            
             mv weights.txt weights_init.txt
-            $repo/scripts/rerank_train.sh weights_init.txt dev_features $dev_tgt > weights.txt
+            $repo/scripts/rerank_train.sh weights_init.txt $dev_features $dev_tgt > weights.txt
         fi
-        python $repo/scripts/rerank_prepare.py \
-            $test_nbest $test_scores test_features \
-            --nbest $nbest \
-            --add-cometsrc $comet_dir \
-            --src $test_src 
-
-        $repo/scripts/rerank.sh weights.txt test_features > $predictions
+        $repo/scripts/rerank.sh weights.txt $test_features > $predictions
     else
         awk "NR % $nbest == 1" $test_nbest > $predictions 
     fi
