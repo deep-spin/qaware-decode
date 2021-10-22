@@ -1,6 +1,5 @@
 import argparse
 import numpy as np
-import sacrebleu
 
 COMET_MODEL = "wmt20-comet-da"
 
@@ -25,6 +24,7 @@ def main():
     sentence_metrics = [[] for _ in range(len(refs))]
 
     if not args.no_lexical_metrics:
+        import sacrebleu
         # gets corpus-level non-ml evaluation metrics
         # corpus-level BLEU
         print(sacrebleu.corpus_bleu(hyps, [refs]).format())
@@ -72,7 +72,7 @@ def main():
         bleurt_scores = bleurt_scorer.score(references=refs, candidates=hyps)
         assert type(bleurt_scores) == list
         # corpus-level BLEURT
-        print(f"BLEURT = {np.array(bleurt_scores).mean()}")
+        print(f"BLEURT = {np.array(bleurt_scores).mean():.4f}")
         for i, bleurt_score in enumerate(bleurt_scores):
             sentence_metrics[i].append(("bleurt", bleurt_score))
 

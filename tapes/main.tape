@@ -440,6 +440,7 @@ task ScoreTranslations
             $predictions $test_tgt --src $test_src \
             --bleurt-dir $bleurt_dir \
             --no-lexical-metrics >> $score
+    fi
 }
 
 
