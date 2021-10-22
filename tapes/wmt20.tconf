@@ -69,8 +69,18 @@ global {
                 RerankMetric:
                     cometsrc="logprob=0 cometsrc=1 transquest=0"
                     transquest="logprob=0 cometsrc=0 transquest=1"
-                )
+            )
             train="logprob=1 cometsrc=0.1 transquest=0"
+    )
+    rerank_eval=(
+        Rerank:
+            false=""
+            fixed=""
+            train=(
+                RerankEval:
+                    bleu="bleu"
+                    comet="comet"
+            )
     )
 
     nbest=(
@@ -90,5 +100,5 @@ plan Baseline {
 }
 
 plan Rerank {
-    reach ComputeFeaturesTest, ComputeFeaturesDev via (UsePretrained: true) * (TargetLang: *) * (DecodeType: *) * (NBest: *) * (Rerank: fixed) * (RerankMetric: cometsrc)
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: *) * (NBest: *) * (Rerank: fixed) * (RerankMetric: cometsrc transquest)
 }

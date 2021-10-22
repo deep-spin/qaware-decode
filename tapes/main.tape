@@ -398,6 +398,7 @@ task RerankTranslations
     :: comet_dir=@
     :: rerank=@
     :: rerank_weights=@
+    :: rerank_eval=@
     :: nbest=@
 {
     if [ "$rerank" != false ]; then
@@ -405,7 +406,8 @@ task RerankTranslations
         
         if [ "$rerank" == "train" ]; then
             mv weights.txt weights_init.txt
-            $repo/scripts/rerank_train.sh weights_init.txt $dev_features $dev_tgt > weights.txt
+            sed -rn "s/.*${rerank_eval}=([-0-9.]+).*/\1 1/p" $dev_metrics > dev_metric
+            $repo/scripts/rerank_train.sh weights_init.txt $dev_features $dev_tgt dev_metric > weights.txt
         fi
         $repo/scripts/rerank.sh weights.txt $test_features > $predictions
     else
