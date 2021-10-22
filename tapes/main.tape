@@ -364,7 +364,7 @@ task ComputeFeaturesDev
         --src $src
     
     awk "{while(++i<$nbest)print;i=0}" $tgt > tgt_repeat
-    python $repo/scripts/score.py $pred_nbest tgt_repeat --save-segment-level $metrics
+    python $repo/scripts/score.py $pred_nbest tgt_repeat --save_segment_level $metrics
 }
 
 
