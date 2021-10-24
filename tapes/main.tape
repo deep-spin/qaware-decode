@@ -210,19 +210,18 @@ task TrainModel
     # later we should try to make variable while having a default
     lr=5e-4
     arch=transformer_iwslt_de_en
-    patience=5
+    patience=10
     max_epoch=100
     max_tokens=4096
-    update_freq=8
+    update_freq=1
 
     fairseq-train \
         $bin_dir \
-        --fp16 \
         --task translation \
         --max-epoch $max_epoch \
         --log-interval 10 \
-        --arch $arch --share-all-embeddings  \
-        --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 5. \
+        --arch $arch --share-all-embeddings \
+        --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 1.0 \
         --lr $lr --lr-scheduler inverse_sqrt  --warmup-updates 4000 \
         --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
         --dropout 0.3 --weight-decay 0.0001 \
@@ -233,6 +232,7 @@ task TrainModel
         $([ "$bpe_type" = "fastbpe" ] && echo "--eval-bleu-detok moses" || echo "")  \
         --eval-bleu-remove-bpe $([ "$bpe_type" = "sentencepiece" ] && echo "sentencepiece" || echo "") \
         --eval-bleu-print-samples \
+        --best-checkpoint-metric bleu --maximize-best-checkpoint-metric \
         --no-epoch-checkpoints \
         --save-dir $model_dir \
         --seed $seed
