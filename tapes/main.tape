@@ -205,6 +205,7 @@ task TrainModel
     :: bpe_type=@
     :: repo=@
     :: seed=@
+    :: use_labelsmooth=@
 {
     # TODO: parameters are currently hard-coded
     # later we should try to make variable while having a default
@@ -223,7 +224,7 @@ task TrainModel
         --arch $arch --share-all-embeddings \
         --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 1.0 \
         --lr $lr --lr-scheduler inverse_sqrt  --warmup-updates 4000 \
-        --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
+        --criterion $([ "$use_labelsmooth" = true ] && echo  "label_smoothed_cross_entropy --label-smoothing 0.1" || echo "cross_entropy") \
         --dropout 0.3 --weight-decay 0.0001 \
         --max-tokens ${max_tokens} --update-freq ${update_freq} \
         --patience $patience \
