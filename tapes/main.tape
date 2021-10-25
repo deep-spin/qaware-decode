@@ -355,16 +355,33 @@ task ComputeFeaturesDev
     :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0
     :: repo=@
     :: comet_dir=@
+    :: bleurt_dir=@
+    :: bleurt_venv=@
     :: nbest=@
 {
     python $repo/scripts/rerank_prepare.py \
         $pred_nbest $scores $features \
         --nbest $nbest \
         --add-cometsrc $comet_dir \
+        --add-transquest \
         --src $src
     
     awk "{while(i++<$nbest)print;i=0}" $tgt > tgt_repeat
-    python $repo/scripts/score.py $pred_nbest tgt_repeat --save-segment-level $metrics
+    awk "{while(i++<$nbest)print;i=0}" $src > src_repeat
+    python $repo/scripts/score.py \
+        $pred_nbest tgt_repeat --src src_repeat \
+            --comet-dir $comet_dir \
+            --save-segment-level $metrics
+
+    if [ ! -z "$bleurt_dir"  ] && [ ! -z "$bleurt_venv" ]; then
+        source $bleurt_venv/bin/activate
+        python $repo/scripts/score.py \
+            $pred_nbest tgt_repeat --src src_repeat \
+            --bleurt-dir $bleurt_dir \
+            --no-lexical-metrics --save-segment-level bleurt.txt
+        mv $metrics other-metrics.txt
+        paste -d ' ' other-metrics.txt bleurt.txt > $metrics
+    fi
 }
 
 
@@ -374,7 +391,7 @@ task ComputeFeaturesTest
     < scores=@GenerateTranslationsTest
     < pred_nbest=$predictions@GenerateTranslationsTest
     > features
-    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0 
     :: repo=@
     :: comet_dir=@
     :: nbest=@
@@ -383,6 +400,7 @@ task ComputeFeaturesTest
         $pred_nbest $scores $features \
         --nbest $nbest \
         --add-cometsrc $comet_dir \
+        --add-transquest \
         --src $src
 }
 

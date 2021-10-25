@@ -2,6 +2,8 @@ import argparse
 import numpy as np
 
 COMET_MODEL = "wmt20-comet-da"
+COMET_BATCH_SIZE = 64
+BLEURT_BATCH_SIZE = 64
 
 
 def main():
@@ -56,7 +58,7 @@ def main():
             {"src": src, "mt": mt, "ref": ref} for src, mt, ref in zip(srcs, hyps, refs)
         ]
         # sentence-level and corpus-level COMET
-        comet_sentscores, comet_score = comet_model.predict(comet_input)
+        comet_sentscores, comet_score = comet_model.predict(comet_input, batch_size=COMET_BATCH_SIZE, sort_by_mtlen=True)
         for i, comet_sentscore in enumerate(comet_sentscores):
             sentence_metrics[i].append(("comet", comet_sentscore))
 
@@ -68,8 +70,8 @@ def main():
 
         checkpoint = args.bleurt_dir
       
-        bleurt_scorer = score.BleurtScorer(checkpoint)
-        bleurt_scores = bleurt_scorer.score(references=refs, candidates=hyps)
+        bleurt_scorer = score.LengthBatchingBleurtScorer(checkpoint)
+        bleurt_scores = bleurt_scorer.score(references=refs, candidates=hyps, batch_size=BLEURT_BATCH_SIZE)
         assert type(bleurt_scores) == list
         # corpus-level BLEURT
         print(f"BLEURT = {np.array(bleurt_scores).mean():.4f}")
