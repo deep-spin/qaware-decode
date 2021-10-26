@@ -26,6 +26,7 @@ def main():
     parser.add_argument("--nbest", required=True, type=int)
     parser.add_argument("--add-cometsrc", default=None)
     parser.add_argument("--add-transquest", action="store_true")
+    parser.add_argument("--add-mbart-qe", action="store_true")
     parser.add_argument("--comet-path", default=None)
     parser.add_argument("--src", default=None)
     parser.add_argument("--lp", default=None)
