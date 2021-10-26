@@ -1,5 +1,6 @@
 git+git://github.com/pytorch/fairseq.git@main
 git+git://github.com/CoderPat/COMET.git@master
+git+git://github.com/Unbabel/wmt21-qe-task/tree/MBART-without-uncertainty
 sentencepiece
 sacremoses
 fastbpe
