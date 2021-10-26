@@ -205,26 +205,26 @@ task TrainModel
     :: bpe_type=@
     :: repo=@
     :: seed=@
+    :: use_labelsmooth=@
 {
     # TODO: parameters are currently hard-coded
     # later we should try to make variable while having a default
     lr=5e-4
     arch=transformer_iwslt_de_en
-    patience=5
-    max_epoch=1
+    patience=10
+    max_epoch=100
     max_tokens=4096
-    update_freq=8
+    update_freq=1
 
     fairseq-train \
         $bin_dir \
-        --fp16 \
         --task translation \
         --max-epoch $max_epoch \
         --log-interval 10 \
-        --arch $arch --share-all-embeddings  \
-        --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 5. \
+        --arch $arch --share-all-embeddings \
+        --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 1.0 \
         --lr $lr --lr-scheduler inverse_sqrt  --warmup-updates 4000 \
-        --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
+        --criterion $([ "$use_labelsmooth" = true ] && echo  "label_smoothed_cross_entropy --label-smoothing 0.1" || echo "cross_entropy") \
         --dropout 0.3 --weight-decay 0.0001 \
         --max-tokens ${max_tokens} --update-freq ${update_freq} \
         --patience $patience \
@@ -233,6 +233,7 @@ task TrainModel
         $([ "$bpe_type" = "fastbpe" ] && echo "--eval-bleu-detok moses" || echo "")  \
         --eval-bleu-remove-bpe $([ "$bpe_type" = "sentencepiece" ] && echo "sentencepiece" || echo "") \
         --eval-bleu-print-samples \
+        --best-checkpoint-metric bleu --maximize-best-checkpoint-metric \
         --no-epoch-checkpoints \
         --save-dir $model_dir \
         --seed $seed
@@ -308,7 +309,7 @@ task GenerateTranslationsDev calls GenerateTranslations
         )
     > scores
     > predictions
-    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0
     :: split=valid
     :: repo=@
     :: src_lang=@
@@ -331,7 +332,7 @@ task GenerateTranslationsTest calls GenerateTranslations
         )
     > scores
     > predictions
-    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0
     :: split=test
     :: repo=@
     :: src_lang=@
@@ -345,68 +346,165 @@ task GenerateTranslationsTest calls GenerateTranslations
     :: nbest=@
 
 
+task ComputeFeaturesDev
+    < src=$dev_src@GetDevTestData
+    < tgt=$dev_tgt@GetDevTestData
+    < scores=@GenerateTranslationsDev
+    < pred_nbest=$predictions@GenerateTranslationsDev
+    > features
+    > metrics
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0
+    :: repo=@
+    :: comet_dir=@
+    :: bleurt_dir=@
+    :: bleurt_venv=@
+    :: nbest=@
+{
+    python $repo/scripts/rerank_prepare.py \
+        $pred_nbest $scores $features \
+        --nbest $nbest \
+        --add-cometsrc $comet_dir \
+        --add-transquest \
+        --src $src
+    
+    awk "{while(i++<$nbest)print;i=0}" $tgt > tgt_repeat
+    awk "{while(i++<$nbest)print;i=0}" $src > src_repeat
+    python $repo/scripts/score.py \
+        $pred_nbest tgt_repeat --src src_repeat \
+            --comet-dir $comet_dir \
+            --save-segment-level $metrics
+
+    if [ ! -z "$bleurt_dir"  ] && [ ! -z "$bleurt_venv" ]; then
+        source $bleurt_venv/bin/activate
+        python $repo/scripts/score.py \
+            $pred_nbest tgt_repeat --src src_repeat \
+            --bleurt-dir $bleurt_dir \
+            --no-lexical-metrics --save-segment-level bleurt.txt
+        mv $metrics other-metrics.txt
+        paste -d ' ' other-metrics.txt bleurt.txt > $metrics
+    fi
+}
+
+
+task ComputeFeaturesTest
+    < src=$test_src@GetDevTestData
+    < tgt=$test_tgt@GetDevTestData
+    < scores=@GenerateTranslationsTest
+    < pred_nbest=$predictions@GenerateTranslationsTest
+    > features
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0 
+    :: repo=@
+    :: comet_dir=@
+    :: nbest=@
+{
+    python $repo/scripts/rerank_prepare.py \
+        $pred_nbest $scores $features \
+        --nbest $nbest \
+        --add-cometsrc $comet_dir \
+        --add-transquest \
+        --src $src
+}
+
+
 task RerankTranslations
-    < dev_src=@GetDevTestData
     < dev_tgt=@GetDevTestData
-    < dev_scores=$scores@GenerateTranslationsDev
-    < dev_nbest=$predictions@GenerateTranslationsDev
-    < test_src=@GetDevTestData
-    < test_scores=$scores@GenerateTranslationsTest
+    < dev_features=$features@ComputeFeaturesDev
+    < dev_metrics=$metrics@ComputeFeaturesDev
     < test_nbest=$predictions@GenerateTranslationsTest
+    < test_features=$features@ComputeFeaturesTest
     > predictions
-    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M
+    :: .submitter=@ .cpus=5 .mem=32000M .time=0
     :: repo=@
     :: comet_dir=@
     :: rerank=@
     :: rerank_weights=@
+    :: rerank_eval=@
     :: nbest=@
 {
     if [ "$rerank" != false ]; then
         echo "$rerank_weights" > weights.txt
         
         if [ "$rerank" == "train" ]; then
-            python $repo/scripts/rerank_prepare.py \
-                $dev_nbest $dev_scores dev_features \
-                --nbest $nbest \
-                --add-cometsrc $comet_dir \
-                --src $dev_src
-            
             mv weights.txt weights_init.txt
-            $repo/scripts/rerank_train.sh weights_init.txt dev_features $dev_tgt > weights.txt
+            sed -rn "s/.*${rerank_eval}=([-0-9.]+).*/\1 1/p" $dev_metrics > dev_metric
+            $repo/scripts/rerank_train.sh weights_init.txt $dev_features $dev_tgt dev_metric > weights.txt
         fi
-        python $repo/scripts/rerank_prepare.py \
-            $test_nbest $test_scores test_features \
-            --nbest $nbest \
-            --add-cometsrc $comet_dir \
-            --src $test_src 
-
-        $repo/scripts/rerank.sh weights.txt test_features > $predictions
+        $repo/scripts/rerank.sh weights.txt $test_features > $predictions
     else
         awk "NR % $nbest == 1" $test_nbest > $predictions 
     fi
+}
+
+task MBRDecoding
+    < test_src=$test_src@GetDevTestData
+    < test_nbest=$predictions@GenerateTranslationsTest
+    > predictions
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0 
+    :: repo=@
+    :: comet_dir=@
+    :: bleurt_dir=@
+    :: bleurt_venv=@
+    :: mbr_metric=@
+    :: nbest=@
+{
+    if [ "$mbr_metric" == "bleurt" ]; then
+        if [ -z "$bleurt_dir"  ] || [ -z "$bleurt_venv" ]; then
+            echo "bleurt_dir and bleurt_venv must be set if mbr_metric is bleurt"
+        fi
+
+        source $bleurt_venv/bin/activate
+    fi
+
+    python $repo/qaware_decoding/mbr_decoding.py \
+        $test_nbest \
+        --num-samples $nbest \
+        --src $test_src \
+        --metric $mbr_metric \
+        --comet-dir $comet_dir \
+        --bleurt-dir $bleurt_dir > $predictions
 }
 
 
 task ScoreTranslations
     < test_src=@GetDevTestData
     < test_tgt=@GetDevTestData
-    < predictions=@RerankTranslations
+    < predictions=(
+        MBRDecoding:
+            false=$predictions@RerankTranslations
+            true=$predictions@MBRDecoding
+    )
     > score
     :: .submitter=@ .gres="gpu:1" .cpus=4 .mem=16000M
     :: repo=@
     :: src_lang=@
     :: tgt_lang=@
     :: comet_dir=@
+    :: bleurt_dir=@
+    :: bleurt_venv=@
 {
     python $repo/scripts/score.py \
         $predictions $test_tgt --src $test_src \
-        --comet $comet_dir > $score
+        --comet-dir $comet_dir > $score
+
+    if [ ! -z "$bleurt_dir"  ] && [ ! -z "$bleurt_venv" ]; then
+        source $bleurt_venv/bin/activate
+        python $repo/scripts/score.py \
+            $predictions $test_tgt --src $test_src \
+            --bleurt-dir $bleurt_dir \
+            --no-lexical-metrics >> $score
+    fi
 }
 
 
 summary TranslationQuality {
-  of ScoreTranslations >  bleu comet {
+  of ScoreTranslations >  bleu comet chrf ter bleurt {
     cat $score | grep -oP "COMET = \K[-0-9.]+" > $comet
     cat $score | grep -oP "BLEU = \K[-0-9.]+" > $bleu
-  }
+    cat $score | grep -oP "chrF2 = \K[-0-9.]+" > $chrf
+    cat $score | grep -oP "TER = \K[-0-9.]+" > $ter
+    cat $score | grep -oP "BLEURT = \K[-0-9.]+" > $bleurt || true
+    if [ ! -s $bleurt ]; then
+        echo "---" > $bleurt
+    fi  
+   }
 }

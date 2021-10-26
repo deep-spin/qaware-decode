@@ -21,6 +21,17 @@ After installing set the enviroment variable to location of the compiled project
 export TRAVATAR_DIR=/path/of/compiled/travatar/
 ```
 
+### BLEURT
+
+Evaluating using BLEURT requires tensorflow, making it incompatible with the requirements for the current env.
+Therefor the approach took is to use a separate virtual environment for BLEURT. You can do this by
+```bash
+python -m venv $BLEURT_ENV
+source $BLEURT_ENV/bin/activate
+pip install git+git://github.com/google-research/bleurt.git@master
+pip install --force-reinstall tensorflow-gpu
+```
+
 ## Running Experiments
 
 

@@ -13,10 +13,10 @@ def main():
     parser.add_argument("--vocab-size", type=int, default=32000)
     parser.add_argument("--vocab-sample-size", type=int, default=None)
     parser.add_argument(
-        "--special-symbols", 
-        type=str, 
-        nargs="+", 
-        default=["<brk>", "<mask>", "<ss1>", "<ss2>", "<ss3>"]
+        "--special-symbols",
+        type=str,
+        nargs="+",
+        default=["<brk>", "<mask>", "<ss1>", "<ss2>", "<ss3>"],
     )
     args = parser.parse_args()
 
