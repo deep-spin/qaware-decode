@@ -434,11 +434,44 @@ task RerankTranslations
     fi
 }
 
+task MBRDecoding
+    < test_src=$test_src@GetDevTestData
+    < test_nbest=$predictions@GenerateTranslationsTest
+    > predictions
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0 
+    :: repo=@
+    :: comet_dir=@
+    :: bleurt_dir=@
+    :: bleurt_venv=@
+    :: mbr_metric=@
+    :: nbest=@
+{
+    if [ "$mbr_metric" == "bleurt" ]; then
+        if [ -z "$bleurt_dir"  ] || [ -z "$bleurt_venv" ]; then
+            echo "bleurt_dir and bleurt_venv must be set if mbr_metric is bleurt"
+        fi
+
+        source $bleurt_venv/bin/activate
+    fi
+
+    python $repo/qaware_decoding/mbr_decoding.py \
+        $test_nbest \
+        --num-samples $nbest \
+        --src $test_src \
+        --metric $mbr_metric \
+        --comet-dir $comet_dir \
+        --bleurt-dir $bleurt_dir > $predictions
+}
+
 
 task ScoreTranslations
     < test_src=@GetDevTestData
     < test_tgt=@GetDevTestData
-    < predictions=@RerankTranslations
+    < predictions=(
+        MBRDecoding:
+            false=$predictions@RerankTranslations
+            true=$predictions@MBRDecoding
+    )
     > score
     :: .submitter=@ .gres="gpu:1" .cpus=4 .mem=16000M
     :: repo=@

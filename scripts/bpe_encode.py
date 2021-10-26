@@ -3,7 +3,8 @@ import sys
 
 import sentencepiece as spm
 import fastBPE
-import sacremoses 
+import sacremoses
+
 
 def load_model(model_path, bpe_type, lang=None):
     if bpe_type == "sentencepiece":
@@ -21,14 +22,19 @@ def encode(model, bpe_type, sentence):
         return " ".join(model.encode(sentence, out_type=str))
     if bpe_type == "fastbpe":
         tok, fastbpe = model
-        return fastbpe.apply([tok.tokenize(sentence, return_str=True)])[0]    
+        return fastbpe.apply([tok.tokenize(sentence, return_str=True)])[0]
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--inputs", type=str, nargs="+", default=[None])
     parser.add_argument("--outputs", type=str, nargs="+", default=[None])
-    parser.add_argument("--bpe-type", type=str, default="sentencepiece", choices=["sentencepiece", "fastbpe"])
+    parser.add_argument(
+        "--bpe-type",
+        type=str,
+        default="sentencepiece",
+        choices=["sentencepiece", "fastbpe"],
+    )
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--lang", default="en")
     args = parser.parse_args()
