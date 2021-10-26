@@ -8,12 +8,14 @@ from transquest.algo.sentence_level.monotransquest.run_model import (
     MonoTransQuestModel,
     MonoTransQuestArgs,
 )
+from mbart_qe import download_mbart_qe, load_mbart_qe
+
 
 COMETSRC_MODEL = "wmt20-comet-qe-da"
 COMETSRC_BATCH_SIZE = 64
 TRANSQUEST_MODEL = "TransQuest/monotransquest-da-multilingual"
 TRANSQUEST_BATCH_SIZE = 64
-
+MBART_BATCH_SIZE = 64
 
 def main():
     parser = argparse.ArgumentParser()
@@ -24,8 +26,10 @@ def main():
     parser.add_argument("--nbest", required=True, type=int)
     parser.add_argument("--add-cometsrc", default=None)
     parser.add_argument("--add-transquest", action="store_true")
+    parser.add_argument("--add-mbart-qe", action="store_true")
     parser.add_argument("--comet-path", default=None)
     parser.add_argument("--src", default=None)
+    parser.add_argument("--lp", default=None)
     args = parser.parse_args()
 
     with open(args.hyps, encoding="utf-8") as hyp_f:
@@ -79,6 +83,24 @@ def main():
         transquest_scores, _ = transquest_model.predict(transquest_input)
         torch.cuda.empty_cache()
 
+    if args.add_mbart_qe is not None:
+        assert args.src is not None, "source needs to be provided to use MBART-QE"
+        assert args.lp is not None, "MBART-QE requires the language pair to be passed as argument"
+        with open(args.src, encoding='utf-8') as src_f:
+            srcs = [line.strip() for line in src_f.readlines()]
+        
+        mbart_path = download_mbart_qe("wmt21-mbart-m2")
+        mbart = load_mbart_qe(mbart_path)
+        mbart_input = [
+            {"src": src, "mt": mt, "lp": args.lp} 
+            for src, mt in src_hyp_iterator(srcs, hyps)
+        ]
+        _, segment_scores = mbart.predict(
+            mbart_input, show_progress=True, batch_size=MBART_BATCH_SIZE
+        )
+        mbart_score = [s[0] for s in segment_scores]
+        mbart_uncertainty = [s[1] for s in segment_scores]
+
     with open(args.formatted, "w", encoding="utf-8") as formatted_f:
         for i, (hyp, score) in enumerate(zip(hyps, scores)):
             sample = i // args.nbest
@@ -91,9 +113,12 @@ def main():
             if args.add_transquest:
                 features.append(f"transquest={transquest_scores[i]}")
 
+            if args.add_mbart_qe is not None:
+                features.append(f"mbart-uncertainty={mbart_uncertainty[i]}")
+                features.append(f"mbart-prediction={mbart_score[i]}")
+
             parts.append(" ".join(features))
             print(" ||| ".join(parts), file=formatted_f)
-
 
 if __name__ == "__main__":
     main()
