@@ -24,6 +24,7 @@ global {
             
     is_multilingual=False
     bpe_type=fastbpe
+    use_labelsmooth=False
 
     src_lang=en
     tgt_lang=(
