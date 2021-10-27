@@ -28,8 +28,10 @@ def main():
     parser.add_argument("--add-cometsrc", default=None)
     parser.add_argument("--add-transquest", action="store_true")
     parser.add_argument("--add-openkiwi", default=None, type=str, help="path to the OpenKiwi model")
+    parser.add_argument("--add-mbart-qe", action="store_true")
     parser.add_argument("--comet-path", default=None)
     parser.add_argument("--src", default=None, help="file with the source sentences")
+    parser.add_argument("--lp", default=None)
     args = parser.parse_args()
 
     with open(args.hyps, encoding="utf-8") as hyp_f:
@@ -109,7 +111,25 @@ def main():
             target=openkiwi_hyps,
         )
 
-    with open(args.formatted, "w", encoding='utf-8') as formatted_f:
+    if args.add_mbart_qe is not None:
+        assert args.src is not None, "source needs to be provided to use MBART-QE"
+        assert args.lp is not None, "MBART-QE requires the language pair to be passed as argument"
+        with open(args.src, encoding='utf-8') as src_f:
+            srcs = [line.strip() for line in src_f.readlines()]
+        
+        mbart_path = download_mbart_qe("wmt21-mbart-m2")
+        mbart = load_mbart_qe(mbart_path)
+        mbart_input = [
+            {"src": src, "mt": mt, "lp": args.lp} 
+            for src, mt in src_hyp_iterator(srcs, hyps)
+        ]
+        _, segment_scores = mbart.predict(
+            mbart_input, show_progress=True, batch_size=MBART_BATCH_SIZE
+        )
+        mbart_score = [s[0] for s in segment_scores]
+        mbart_uncertainty = [s[1] for s in segment_scores]
+
+    with open(args.formatted, "w", encoding="utf-8") as formatted_f:
         for i, (hyp, score) in enumerate(zip(hyps, scores)):
             sample = i // args.nbest
             parts = [str(sample), hyp, f"{score}"]
@@ -121,12 +141,15 @@ def main():
             if args.add_transquest:
                 features.append(f"transquest={transquest_scores[i]}")
 
-            if args.add_openkiwi:
+            if args.add_openkiwi is not None:
                 features.append(f"openkiwi={openkiwi_scores.sentences_hter[i]}")
+
+            if args.add_mbart_qe is not None:
+                features.append(f"mbart-uncertainty={mbart_uncertainty[i]}")
+                features.append(f"mbart-prediction={mbart_score[i]}")
 
             parts.append(" ".join(features))
             print(" ||| ".join(parts), file=formatted_f)
-
 
 if __name__ == "__main__":
     main()
