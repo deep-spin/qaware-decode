@@ -43,7 +43,7 @@ def main():
     parser.add_argument(
         "--add-openkiwi", default=None, type=str, help="path to the OpenKiwi model"
     )
-    parser.add_argument("--add-mbart-qe", action="store_true")
+    parser.add_argument("--add-mbart-qe", default=None)
     parser.add_argument("--comet-path", default=None)
     parser.add_argument("--src", default=None, help="file with the source sentences")
     parser.add_argument("--lp", default=None)
@@ -123,7 +123,7 @@ def main():
             batch_size=OPENKIWI_BATCH_SIZE,
         )
 
-    if args.add_mbart_qe:
+    if args.add_mbart_qe is not None:
         assert args.src is not None, "source needs to be provided to use MBART-QE"
         assert (
             args.lp is not None
@@ -131,7 +131,7 @@ def main():
         with open(args.src, encoding="utf-8") as src_f:
             srcs = [line.strip() for line in src_f.readlines()]
 
-        mbart_path = download_mbart_qe("wmt21-mbart-m2")
+        mbart_path = download_mbart_qe("wmt21-mbart-m2", args.add_mbart_qe)
         mbart = load_mbart_qe(mbart_path)
         mbart_input = [
             {"src": src, "mt": mt, "lp": args.lp}
@@ -158,7 +158,7 @@ def main():
             if args.add_openkiwi is not None:
                 features.append(f"openkiwi={openkiwi_scores.sentences_hter[i]}")
 
-            if args.add_mbart_qe:
+            if args.add_mbart_qe is not None:
                 features.append(f"mbart-uncertainty={mbart_uncertainty[i]}")
                 features.append(f"mbart-prediction={mbart_score[i]}")
 

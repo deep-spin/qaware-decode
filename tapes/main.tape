@@ -350,36 +350,62 @@ task GenerateTranslationsTest calls GenerateTranslations
     :: diversity_rate=@
     :: nbest=@
 
-task ComputeFeaturesDevOpenKiwi
+
+func ComputeFeatures
+    < src
+    < scores
+    < pred_nbest
+    > features
+    :: repo
+    :: src_lang
+    :: tgt_lang
+    :: comet_dir
+    :: mbartqe_dir
+    :: openkiwi_model
+    :: openkiwi_venv
+    :: nbest
+{
+    python $repo/scripts/rerank_prepare.py \
+        $pred_nbest $scores $features \
+        --nbest $nbest \
+        --lp "$src_lang-$tgt_lang" \
+        --add-cometsrc $comet_dir \
+        --add-transquest \
+        --add-mbart-qe $mbartqe_dir \
+        --src $src
+    if [ ! -z $openkiwi_venv ] && [ ! -z $openkiwi_model ]; then
+        source $openkiwi_venv/bin/activate
+        python $repo/scripts/rerank_prepare.py \
+        $pred_nbest $scores $features \
+            --nbest $nbest \
+            --add-openkiwi $openkiwi_model \
+            --src $src
+        grep "openkiwi=[0-9]*\.[0-9]*" -o $openkiwi_features > grepped_openkiwi
+        mv $features other_features
+        paste -d' ' other_features grepped_openkiwi > $features
+    else
+}
+
+
+task ComputeFeaturesDev calls ComputeFeatures
     < src=$dev_src@GetDevTestData
-    < tgt=$dev_tgt@GetDevTestData
     < scores=@GenerateTranslationsDev
     < pred_nbest=$predictions@GenerateTranslationsDev
     > features
     :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0
     :: repo=@
+    :: src_lang=@
+    :: tgt_lang=@
+    :: comet_dir=@
     :: openkiwi_model=@
     :: openkiwi_venv=@
     :: nbest=@
-{
-    if [ ! -z $openkiwi_venv ] && [ ! -z $openkiwi_model ]; then
-        source $openkiwi_venv/bin/activate
-        python $repo/scripts/rerank_prepare.py \
-            $pred_nbest $scores $features \
-            --nbest $nbest \
-            --add-openkiwi $openkiwi_model \
-            --src $src
-    else
-        touch $features
-    fi
-}
 
-task ComputeFeaturesDev
+
+task ComputeMetricsDev
     < src=$dev_src@GetDevTestData
     < tgt=$dev_tgt@GetDevTestData
-    < scores=@GenerateTranslationsDev
     < pred_nbest=$predictions@GenerateTranslationsDev
-    > features
     > metrics
     :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0
     :: repo=@
@@ -388,13 +414,6 @@ task ComputeFeaturesDev
     :: bleurt_venv=@
     :: nbest=@
 {
-    python $repo/scripts/rerank_prepare.py \
-        $pred_nbest $scores $features \
-        --nbest $nbest \
-        --add-cometsrc $comet_dir \
-        --add-transquest \
-        --src $src
-    
     awk "{while(i++<$nbest)print;i=0}" $tgt > tgt_repeat
     awk "{while(i++<$nbest)print;i=0}" $src > src_repeat
     python $repo/scripts/score.py \
@@ -413,79 +432,27 @@ task ComputeFeaturesDev
     fi
 }
 
-task ComputeFeaturesTestOpenKiwi
+task ComputeFeaturesTest calls ComputeFeatures
     < src=$test_src@GetDevTestData
-    < tgt=$test_tgt@GetDevTestData
     < scores=@GenerateTranslationsTest
     < pred_nbest=$predictions@GenerateTranslationsTest
     > features
     :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0 
     :: repo=@
-    :: openkiwi_model=@
-    :: openkiwi_venv=@
-    :: nbest=@
-{
-    if [ ! -z $openkiwi_venv ] && [ ! -z $openkiwi_model ]; then
-        source $openkiwi_venv/bin/activate
-        python $repo/scripts/rerank_prepare.py \
-            $pred_nbest $scores $features \
-            --nbest $nbest \
-            --add-openkiwi $openkiwi_model \
-            --src $src
-    else
-        touch $features
-    fi
-}
-
-task ComputeFeaturesTest
-    < src=$test_src@GetDevTestData
-    < tgt=$test_tgt@GetDevTestData
-    < scores=@GenerateTranslationsTest
-    < pred_nbest=$predictions@GenerateTranslationsTest
-    > features
-    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0 
-    :: repo=@
+    :: src_lang=@
+    :: tgt_lang=@
     :: comet_dir=@
     :: openkiwi_model=@
     :: openkiwi_venv=@
     :: nbest=@
-{
-        python $repo/scripts/rerank_prepare.py \
-            $pred_nbest $scores $features \
-            --nbest $nbest \
-            --add-cometsrc $comet_dir \
-            --add-transquest \
-            --src $src
-}
 
-func MergeFeatures
-    < openkiwi_features
-    < other_features
-    > features
-{
-    # merge and return
-    grep "openkiwi=[0-9]*\.[0-9]*" -o $openkiwi_features > grepped_openkiwi
-    paste -d' ' $other_features grepped_openkiwi > $features
-}
-
-task MergeFeaturesTest calls MergeFeatures
-    < openkiwi_features=$features@ComputeFeaturesTestOpenKiwi
-    < other_features=$features@ComputeFeaturesTest
-    > features
-    :: .submitter=@ .cpus=1 .mem=16000M
-
-task MergeFeaturesDev calls MergeFeatures
-    < openkiwi_features=$features@ComputeFeaturesDevOpenKiwi
-    < other_features=$features@ComputeFeaturesDev
-    > features
-    :: .submitter=@ .cpus=1 .mem=16000M
 
 task RerankTranslations
     < dev_tgt=@GetDevTestData
-    < dev_features=$features@MergeFeaturesDev
-    < dev_metrics=$metrics@ComputeFeaturesDev
+    < dev_features=$features@ComputeFeaturesDev
+    < dev_metrics=$metrics@ComputeMetricsDev
     < test_nbest=$predictions@GenerateTranslationsTest
-    < test_features=$features@MergeFeaturesTest
+    < test_features=$features@ComputeFeaturesTest
     > predictions
     :: .submitter=@ .cpus=5 .mem=32000M .time=0
     :: repo=@
@@ -537,7 +504,6 @@ task MBRDecoding
         --comet-dir $comet_dir \
         --bleurt-dir $bleurt_dir > $predictions
 }
-
 
 task ScoreTranslations
     < test_src=@GetDevTestData

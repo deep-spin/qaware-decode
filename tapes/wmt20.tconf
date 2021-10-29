@@ -1,5 +1,5 @@
 global {
-    ducttape_output="/projects/tir4/users/pfernand/workflows-outputs/qaware-wmt20"
+    ducttape_output="/projects/tir4/users/pfernand/workflows-outputs/qaware-wmt20-v2"
     ducttape_experimental_imports=true
     ducttape_experimental_submitters=true
     submitter="slurm"
@@ -8,6 +8,9 @@ global {
     comet_dir=/projects/tir1/users/pfernand/comet-v3/
     bleurt_dir=/projects/tir1/users/pfernand/bleurt/BLEURT-20/
     bleurt_venv=/home/pfernand/repos/qaware-decoding/.bleurt_venv
+    mbartqe_dir=/projects/tir1/users/pfernand/mbart-qe/
+    openkiwi_model="/projects/tir1/users/pfernand/openkiwi/model_epoch=02-val_PEARSON=0.79.ckpt"
+    openkiwi_venv=/home/pfernand/repos/qaware-decoding/.openkiwi_venv
 
     train_dir=""
     devtest_dir=(
@@ -45,22 +48,23 @@ global {
     sampling=(
         DecodeType:
             beam_search=false
+            diverse_siblings=false
             sampling=true
-            nucleus_80=true
-            nucleus_70=true
             nucleus_60=true
-            nucleus_50=true
-            nucleus_40=true
     )
     sampling_topp=(
         DecodeType:
             beam_search=""
+            diverse_siblings=""
             sampling=""
-            nucleus_80=0.8
-            nucleus_70=0.7
             nucleus_60=0.6
-            nucleus_50=0.5
-            nucleus_40=0.4
+    )
+    diversity_rate=(
+        DecodeType:
+            beam_search=-1
+            diverse_siblings=0.5
+            sampling=-1
+            nucleus_60=-1
     )
 
     rerank=(
@@ -74,10 +78,12 @@ global {
             false=""
             fixed=(
                 RerankMetric:
-                    cometsrc="logprob=0 cometsrc=1 transquest=0"
-                    transquest="logprob=0 cometsrc=0 transquest=1"
+                    cometsrc="logprob=0 cometsrc=1 transquest=0 mbart-prediction=0 mbart-uncertainty=0 openkiwi=0"
+                    transquest="logprob=0 cometsrc=0 transquest=1 mbart-prediction=0 mbart-uncertainty=0 openkiwi=0"
+                    mbart_qe="logprob=0 cometsrc=0 transquest=0 mbart-prediction=1 mbart-uncertainty=0 openkiwi=0"
+                    openkiwi="logprob=0 cometsrc=0 transquest=0 mbart-prediction=0 mbart-uncertainty=0 openkiwi=1"
             )
-            train="logprob=1 cometsrc=0.1 transquest=0.1"
+            train="logprob=1 cometsrc=0.1 transquest=0.1 mbart-prediction=0.1 mbart-uncertainty=0.1 openkiwi=0.1"
     )
     rerank_eval=(
         Rerank:
@@ -115,12 +121,12 @@ plan Baseline {
 }
 
 plan Rerank {
-    #reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: beam_search nucleus_50 nucleus_60 nucleus_70 sampling) * (NBest: 5 20 50 100 200) * (Rerank: fixed) * (RerankMetric: cometsrc transquest)
-    #reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: beam_search nucleus_50 nucleus_60 nucleus_70 sampling) * (NBest: 5 20 50 100 200) * (Rerank: train) * (RerankEval: bleu comet bleurt)
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: diverse_siblings) * (NBest: 5 20 50 100 200) * (Rerank: fixed) * (RerankMetric: cometsrc transquest)
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: diverse_siblings) * (NBest: 5 20 50 100 200) * (Rerank: train) * (RerankEval: bleu comet bleurt)
 }
 
 plan MBRDecoding {
-    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 5 20 50) * (MBRDecoding: true) * (MBRMetric: bleu comet bleurt)
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: beam_search nucleus_60) * (NBest: 5 20 50) * (MBRDecoding: true) * (MBRMetric: bleu comet)
 }
 
 plan MBRLong {
