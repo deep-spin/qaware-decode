@@ -397,6 +397,7 @@ task ComputeFeaturesDev calls ComputeFeatures
     :: src_lang=@
     :: tgt_lang=@
     :: comet_dir=@
+    :: mbartqe_dir=@
     :: openkiwi_model=@
     :: openkiwi_venv=@
     :: nbest=@
@@ -442,6 +443,7 @@ task ComputeFeaturesTest calls ComputeFeatures
     :: src_lang=@
     :: tgt_lang=@
     :: comet_dir=@
+    :: mbartqe_dir=@
     :: openkiwi_model=@
     :: openkiwi_venv=@
     :: nbest=@
