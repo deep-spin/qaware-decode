@@ -69,6 +69,7 @@ task TrainBPE
     :: bpe_type=@
     :: vocab_size=20000
 {
+    set -x
     cat $train_src $train_tgt > train.all 
     python $repo/scripts/bpe_train.py train.all \
         --bpe-type $bpe_type \
@@ -76,9 +77,9 @@ task TrainBPE
         --vocab-file vocab \
         --vocab-size $vocab_size
 
-    ln -s vocab $src_dict
-    ln -s vocab $tgt_dict
-    ln -s bpe_model.model $bpe_model
+    ln -sf vocab $src_dict
+    ln -sf vocab $tgt_dict
+    ln -sf bpe_model.model $bpe_model
 }
 
 
@@ -165,7 +166,7 @@ task BinarizeData
             false=$tgt_dict@TrainBPE
         )
     > bin_dir
-    :: .submitter=@ .cpus=8 .mem=32000M .exclude=tir-1-11
+    :: .submitter=@ .cpus=8 .mem=32000M 
     :: repo=@
     :: src_lang=@
     :: tgt_lang=@
@@ -349,6 +350,29 @@ task GenerateTranslationsTest calls GenerateTranslations
     :: diversity_rate=@
     :: nbest=@
 
+task ComputeFeaturesDevOpenKiwi
+    < src=$dev_src@GetDevTestData
+    < tgt=$dev_tgt@GetDevTestData
+    < scores=@GenerateTranslationsDev
+    < pred_nbest=$predictions@GenerateTranslationsDev
+    > features
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0
+    :: repo=@
+    :: openkiwi_model=@
+    :: openkiwi_venv=@
+    :: nbest=@
+{
+    if [ ! -z $openkiwi_venv ] && [ ! -z $openkiwi_model ]; then
+        source $openkiwi_venv/bin/activate
+        python $repo/scripts/rerank_prepare.py \
+            $pred_nbest $scores $features \
+            --nbest $nbest \
+            --add-openkiwi $openkiwi_model \
+            --src $src
+    else
+        touch $features
+    fi
+}
 
 task ComputeFeaturesDev
     < src=$dev_src@GetDevTestData
@@ -389,6 +413,29 @@ task ComputeFeaturesDev
     fi
 }
 
+task ComputeFeaturesTestOpenKiwi
+    < src=$test_src@GetDevTestData
+    < tgt=$test_tgt@GetDevTestData
+    < scores=@GenerateTranslationsTest
+    < pred_nbest=$predictions@GenerateTranslationsTest
+    > features
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0 
+    :: repo=@
+    :: openkiwi_model=@
+    :: openkiwi_venv=@
+    :: nbest=@
+{
+    if [ ! -z $openkiwi_venv ] && [ ! -z $openkiwi_model ]; then
+        source $openkiwi_venv/bin/activate
+        python $repo/scripts/rerank_prepare.py \
+            $pred_nbest $scores $features \
+            --nbest $nbest \
+            --add-openkiwi $openkiwi_model \
+            --src $src
+    else
+        touch $features
+    fi
+}
 
 task ComputeFeaturesTest
     < src=$test_src@GetDevTestData
@@ -399,23 +446,46 @@ task ComputeFeaturesTest
     :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0 
     :: repo=@
     :: comet_dir=@
+    :: openkiwi_model=@
+    :: openkiwi_venv=@
     :: nbest=@
 {
-    python $repo/scripts/rerank_prepare.py \
-        $pred_nbest $scores $features \
-        --nbest $nbest \
-        --add-cometsrc $comet_dir \
-        --add-transquest \
-        --src $src
+        python $repo/scripts/rerank_prepare.py \
+            $pred_nbest $scores $features \
+            --nbest $nbest \
+            --add-cometsrc $comet_dir \
+            --add-transquest \
+            --src $src
 }
 
+func MergeFeatures
+    < openkiwi_features
+    < other_features
+    > features
+{
+    # merge and return
+    grep "openkiwi=[0-9]*\.[0-9]*" -o $openkiwi_features > grepped_openkiwi
+    paste -d' ' $other_features grepped_openkiwi > $features
+}
+
+task MergeFeaturesTest calls MergeFeatures
+    < openkiwi_features=$features@ComputeFeaturesTestOpenKiwi
+    < other_features=$features@ComputeFeaturesTest
+    > features
+    :: .submitter=@ .cpus=1 .mem=16000M
+
+task MergeFeaturesDev calls MergeFeatures
+    < openkiwi_features=$features@ComputeFeaturesDevOpenKiwi
+    < other_features=$features@ComputeFeaturesDev
+    > features
+    :: .submitter=@ .cpus=1 .mem=16000M
 
 task RerankTranslations
     < dev_tgt=@GetDevTestData
-    < dev_features=$features@ComputeFeaturesDev
+    < dev_features=$features@MergeFeaturesDev
     < dev_metrics=$metrics@ComputeFeaturesDev
     < test_nbest=$predictions@GenerateTranslationsTest
-    < test_features=$features@ComputeFeaturesTest
+    < test_features=$features@MergeFeaturesTest
     > predictions
     :: .submitter=@ .cpus=5 .mem=32000M .time=0
     :: repo=@

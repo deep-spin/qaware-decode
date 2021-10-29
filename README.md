@@ -32,6 +32,21 @@ pip install git+git://github.com/google-research/bleurt.git@master
 pip install --force-reinstall tensorflow-gpu
 ```
 
+### OpenKiwi
+
+Evaluating with OpenKiwi requires a specific branch of the OpenKiwi public repository and downloading a specific model that was trained with MQM data for the WMT 2021 shared task. In order to set it up do:
+
+```bash
+aws s3 cp s3://unbabel-experimental-models/openkiwi/ openkiwi_bins/
+python3.8 -m venv openkiwi_venv
+# it is better to create a separate venv for OpenKiwi given it can have 
+# version dependencies conflict with the other requirements
+source openkiwi_venv/bin/activate
+pip install openkiwi_bins/openkiwi-2.1.0-py3-none-any.whl
+pip install adapter-transformers==1.1.0
+```
+The MQM-based 2021 WMT OpenKiwi model will be at `openkiwi_bins/model_epoch=02-val_PEARSON=0.79.ckpt`. This model needs to set in the tconf in the variable `openkiwi_dir`.
+
 ## Running Experiments
 
 

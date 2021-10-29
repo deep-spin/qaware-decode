@@ -53,7 +53,7 @@ def mbr_corpus(
                         i * num_samples * num_samples + j * num_samples + k
                     ]
                 )
-    
+
     metric_scores = np.array(metric_scores)
 
     # TODO: add other pondering functions other than just mean
@@ -65,7 +65,9 @@ def main():
     parser.add_argument("hyps")
     parser.add_argument("--num-samples", type=int, required=True)
     parser.add_argument("--num-subsamples", type=int, default=None)
-    parser.add_argument("--metric", default="comet", choices=["bleu", "comet", "bleurt"])
+    parser.add_argument(
+        "--metric", default="comet", choices=["bleu", "comet", "bleurt"]
+    )
     parser.add_argument("--comet-dir", default=None)
     parser.add_argument("--bleurt-dir", default=None)
     parser.add_argument("--src", default=None)
