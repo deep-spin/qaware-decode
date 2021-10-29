@@ -3,7 +3,6 @@ import argparse
 import torch
 import sentencepiece as spm
 
-from mbart_qe import download_mbart_qe, load_mbart_qe
 
 COMETSRC_MODEL = "wmt20-comet-qe-da"
 COMETSRC_BATCH_SIZE = 64
@@ -124,6 +123,8 @@ def main():
         )
 
     if args.add_mbart_qe is not None:
+        from mbart_qe import download_mbart_qe, load_mbart_qe
+
         assert args.src is not None, "source needs to be provided to use MBART-QE"
         assert (
             args.lp is not None
