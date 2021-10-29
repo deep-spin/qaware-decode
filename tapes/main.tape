@@ -376,11 +376,11 @@ func ComputeFeatures
     if [ ! -z $openkiwi_venv ] && [ ! -z $openkiwi_model ]; then
         source $openkiwi_venv/bin/activate
         python $repo/scripts/rerank_prepare.py \
-        $pred_nbest $scores $features \
+        $pred_nbest $scores openkiwi_features \
             --nbest $nbest \
             --add-openkiwi $openkiwi_model \
             --src $src
-        grep "openkiwi=[0-9]*\.[0-9]*" -o $openkiwi_features > grepped_openkiwi
+        grep "openkiwi=[0-9]*\.[0-9]*" -o openkiwi_features > grepped_openkiwi
         mv $features other_features
         paste -d' ' other_features grepped_openkiwi > $features
     fi
