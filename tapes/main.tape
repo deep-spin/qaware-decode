@@ -380,7 +380,7 @@ func ComputeFeatures
             --nbest $nbest \
             --add-openkiwi $openkiwi_model \
             --src $src
-        grep "openkiwi=[0-9]*\.[0-9]*" -o openkiwi_features > grepped_openkiwi
+        grep "openkiwi=[-0-9]*\.[0-9]*" -o openkiwi_features > grepped_openkiwi
         mv $features other_features
         paste -d' ' other_features grepped_openkiwi > $features
     fi
