@@ -83,7 +83,7 @@ def main():
         transquest_scores, _ = transquest_model.predict(transquest_input)
         torch.cuda.empty_cache()
 
-    if args.add_mbart_qe is not None:
+    if args.add_mbart_qe:
         assert args.src is not None, "source needs to be provided to use MBART-QE"
         assert args.lp is not None, "MBART-QE requires the language pair to be passed as argument"
         with open(args.src, encoding='utf-8') as src_f:
@@ -113,7 +113,7 @@ def main():
             if args.add_transquest:
                 features.append(f"transquest={transquest_scores[i]}")
 
-            if args.add_mbart_qe is not None:
+            if args.add_mbart_qe:
                 features.append(f"mbart-uncertainty={mbart_uncertainty[i]}")
                 features.append(f"mbart-prediction={mbart_score[i]}")
 

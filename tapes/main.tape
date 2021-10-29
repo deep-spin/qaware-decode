@@ -267,6 +267,7 @@ func GenerateTranslations
     :: infer_batchsize
     :: sampling
     :: sampling_topp
+    :: diversity_rate
     :: nbest
 {
     # TODO: test this
@@ -290,6 +291,7 @@ func GenerateTranslations
         $([ "$bpe_type" = "fastbpe" ] && echo "--tokenizer moses" || echo "")  \
         $([ "$sampling" = true ] && echo "--sampling" || echo "") \
         $([ ! -z "$sampling_topp"  ] && echo "--sampling-topp $sampling_topp" || echo "") \
+        --diversity-rate $diversity_rate \
         --beam $nbest \
         --nbest $nbest \
             > full_outputs 
@@ -320,6 +322,7 @@ task GenerateTranslationsDev calls GenerateTranslations
     :: infer_batchsize=@
     :: sampling=@
     :: sampling_topp=@
+    :: diversity_rate=@
     :: nbest=@
 
 
@@ -343,6 +346,7 @@ task GenerateTranslationsTest calls GenerateTranslations
     :: infer_batchsize=@
     :: sampling=@
     :: sampling_topp=@
+    :: diversity_rate=@
     :: nbest=@
 
 
@@ -439,7 +443,7 @@ task MBRDecoding
     < test_src=$test_src@GetDevTestData
     < test_nbest=$predictions@GenerateTranslationsTest
     > predictions
-    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0 
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=64000M .time=0 
     :: repo=@
     :: comet_dir=@
     :: bleurt_dir=@
@@ -474,7 +478,7 @@ task ScoreTranslations
             true=$predictions@MBRDecoding
     )
     > score
-    :: .submitter=@ .gres="gpu:1" .cpus=4 .mem=16000M
+    :: .submitter=@ .gres="gpu:1" .cpus=4 .mem=16000M .time=0
     :: repo=@
     :: src_lang=@
     :: tgt_lang=@
