@@ -104,6 +104,14 @@ global {
             bleurt="bleurt"
     )
 
+    mbr_samples=(
+        MBRSamples:
+            5=5
+            20=20
+            50=50
+            100=100
+    )
+
     nbest=(
         NBest:
             5=5
@@ -121,8 +129,8 @@ plan Baseline {
 }
 
 plan Rerank {
-    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: diverse_siblings) * (NBest: 5 20 50 100 200) * (Rerank: fixed) * (RerankMetric: cometsrc transquest)
-    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: diverse_siblings) * (NBest: 5 20 50 100 200) * (Rerank: train) * (RerankEval: bleu comet bleurt)
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 5 20 50 100 200) * (Rerank: fixed) * (RerankMetric: cometsrc transquest)
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 5 20 50 100 200) * (Rerank: train) * (RerankEval: bleu comet bleurt)
 }
 
 plan MBRDecoding {
@@ -131,4 +139,9 @@ plan MBRDecoding {
 
 plan MBRLong {
     reach ScoreTranslations via (UsePretrained: true) * (TargetLang: de) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 100) * (MBRDecoding: true) * (MBRMetric: comet bleurt)
+}
+
+plan Test {
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *)
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (Rerank: fixed) * (RerankMetric: cometsrc)
 }

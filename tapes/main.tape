@@ -438,7 +438,7 @@ task ComputeFeaturesTest calls ComputeFeatures
     < scores=@GenerateTranslationsTest
     < pred_nbest=$predictions@GenerateTranslationsTest
     > features
-    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0 
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0
     :: repo=@
     :: src_lang=@
     :: tgt_lang=@
@@ -455,7 +455,8 @@ task RerankTranslations
     < dev_metrics=$metrics@ComputeMetricsDev
     < test_nbest=$predictions@GenerateTranslationsTest
     < test_features=$features@ComputeFeaturesTest
-    > predictions
+    > reranked_nbest
+    > reranked_features
     :: .submitter=@ .cpus=5 .mem=32000M .time=0
     :: repo=@
     :: comet_dir=@
@@ -472,39 +473,82 @@ task RerankTranslations
             sed -rn "s/.*${rerank_eval}=([-0-9.]+).*/\1 1/p" $dev_metrics > dev_metric
             $repo/scripts/rerank_train.sh weights_init.txt $dev_features $dev_tgt dev_metric > weights.txt
         fi
-        $repo/scripts/rerank.sh weights.txt $test_features > $predictions
+        $repo/scripts/rerank.sh weights.txt $test_features $reranked_features
     else
-        awk "NR % $nbest == 1" $test_nbest > $predictions 
+        cp $test_features $reranked_features
     fi
+
+    awk -F' [|][|][|] ' '{print $2}' $reranked_features > $reranked_nbest
 }
 
-task MBRDecoding
-    < test_src=$test_src@GetDevTestData
-    < test_nbest=$predictions@GenerateTranslationsTest
+task PickBestRanked
+    < reranked_nbest=@RerankTranslations
     > predictions
+    :: .submitter=shell
+    :: nbest=@
+{
+    awk "NR % $nbest == 1" $reranked_nbest > $predictions
+}
+
+task MBRPairwiseCompare
+    < test_src=$test_src@GetDevTestData
+    < test_nbest=$reranked_nbest@RerankTranslations
+    > mbr_matrixes="mbr_matrixes.npy"
     :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=64000M .time=0 
     :: repo=@
     :: comet_dir=@
     :: bleurt_dir=@
     :: bleurt_venv=@
     :: mbr_metric=@
+    :: mbr_samples=@
     :: nbest=@
 {
+    if [ "$mbr_samples" -gt $nbest ]; then
+       echo "mbr_samples must be less than or equal to nbest"
+       exit 1
+    fi
+
+    awk "(NR-1) % $nbest < $mbr_samples" $test_nbest > test_samples
+
     if [ "$mbr_metric" == "bleurt" ]; then
         if [ -z "$bleurt_dir"  ] || [ -z "$bleurt_venv" ]; then
             echo "bleurt_dir and bleurt_venv must be set if mbr_metric is bleurt"
+            exit 1
         fi
 
         source $bleurt_venv/bin/activate
     fi
 
     python $repo/qaware_decoding/mbr_decoding.py \
-        $test_nbest \
-        --num-samples $nbest \
+        test_samples \
+        --num-samples $mbr_samples \
         --src $test_src \
         --metric $mbr_metric \
         --comet-dir $comet_dir \
-        --bleurt-dir $bleurt_dir > $predictions
+        --bleurt-dir $bleurt_dir \
+        --save-metric-matrixes $mbr_matrixes > /dev/null
+}
+
+task MBRDecoding
+    < test_nbest=$predictions@GenerateTranslationsTest
+    < mbr_matrixes=@MBRPairwiseCompare
+    > predictions
+    :: .submitter=@ .cpus=5 .mem=64000M .time=0 
+    :: repo=@
+    :: mbr_samples=@
+    :: nbest=@
+{
+    if [ "$mbr_samples" -gt $nbest ]; then
+       echo "mbr_samples must be less than or equal to nbest"
+       exit 1
+    fi
+
+    awk "(NR-1) % $nbest < $mbr_samples" $test_nbest > test_samples
+
+    python $repo/qaware_decoding/mbr_decoding.py \
+        test_samples \
+        --num-samples $mbr_samples \
+        --metric-matrixes $mbr_matrixes > $predictions
 }
 
 task ScoreTranslations
@@ -512,7 +556,7 @@ task ScoreTranslations
     < test_tgt=@GetDevTestData
     < predictions=(
         MBRDecoding:
-            false=$predictions@RerankTranslations
+            false=$predictions@PickBestRanked
             true=$predictions@MBRDecoding
     )
     > score

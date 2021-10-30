@@ -36,7 +36,7 @@ def bleu(hyps, refs, srcs=None):
     import sacrebleu
 
     sentence_scores = [
-        sacrebleu.sentence_bleu(hyp, [ref]).score for hyp, ref in zip(hyps, refs)
+        sacrebleu.sentence_bleu(ref, [hyp]).score for hyp, ref in zip(hyps, refs)
     ]
     corpus_score = sacrebleu.corpus_bleu(refs, [hyps]).score
     return sentence_scores, corpus_score
