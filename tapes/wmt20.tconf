@@ -134,7 +134,8 @@ plan Rerank {
 }
 
 plan MBRDecoding {
-    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: beam_search nucleus_60) * (NBest: 200) * (MBRSamples: 20 50) * (MBRDecoding: true) * (MBRMetric: comet)
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: beam_search nucleus_60) * (NBest: 20) * (MBRSamples: 20) * (MBRDecoding: true) * (MBRMetric: comet)
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: beam_search nucleus_60) * (NBest: 50) * (MBRSamples: 50) * (MBRDecoding: true) * (MBRMetric: comet)
     reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: beam_search nucleus_60) * (NBest: 200) * (Rerank: train) * (RerankEval: comet) * (MBRSamples: 20 50) * (MBRDecoding: true) * (MBRMetric: comet)
 }
 

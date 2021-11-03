@@ -408,7 +408,7 @@ task ComputeMetricsDev
     < tgt=$dev_tgt@GetDevTestData
     < pred_nbest=$predictions@GenerateTranslationsDev
     > metrics
-    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0 
     :: repo=@
     :: comet_dir=@
     :: bleurt_dir=@
@@ -438,7 +438,7 @@ task ComputeFeaturesTest calls ComputeFeatures
     < scores=@GenerateTranslationsTest
     < pred_nbest=$predictions@GenerateTranslationsTest
     > features
-    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0 
     :: repo=@
     :: src_lang=@
     :: tgt_lang=@
@@ -494,7 +494,7 @@ task MBRPairwiseCompare
     < test_src=$test_src@GetDevTestData
     < test_nbest=$reranked_nbest@RerankTranslations
     > mbr_matrixes="mbr_matrixes.npy"
-    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=64000M .time=0 
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=64000M .time=0
     :: repo=@
     :: comet_dir=@
     :: bleurt_dir=@
@@ -530,10 +530,10 @@ task MBRPairwiseCompare
 }
 
 task MBRDecoding
-    < test_nbest=$predictions@GenerateTranslationsTest
+    < test_nbest=$reranked_nbest@RerankTranslations
     < mbr_matrixes=@MBRPairwiseCompare
     > predictions
-    :: .submitter=@ .cpus=5 .mem=64000M .time=0 
+    :: .submitter=@ .cpus=5 .mem=32000M .time=0 
     :: repo=@
     :: mbr_samples=@
     :: nbest=@
