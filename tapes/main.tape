@@ -403,17 +403,16 @@ task ComputeFeaturesDev calls ComputeFeatures
     :: nbest=@
 
 
-task ComputeMetricsDev
-    < src=$dev_src@GetDevTestData
-    < tgt=$dev_tgt@GetDevTestData
-    < pred_nbest=$predictions@GenerateTranslationsDev
+func ComputeMetrics
+    < src
+    < tgt
+    < pred_nbest
     > metrics
-    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0 
-    :: repo=@
-    :: comet_dir=@
-    :: bleurt_dir=@
-    :: bleurt_venv=@
-    :: nbest=@
+    :: repo
+    :: comet_dir
+    :: bleurt_dir
+    :: bleurt_venv
+    :: nbest
 {
     awk "{while(i++<$nbest)print;i=0}" $tgt > tgt_repeat
     awk "{while(i++<$nbest)print;i=0}" $src > src_repeat
@@ -433,12 +432,38 @@ task ComputeMetricsDev
     fi
 }
 
+task ComputeMetricsDev calls ComputeMetrics
+    < src=$dev_src@GetDevTestData
+    < tgt=$dev_tgt@GetDevTestData
+    < pred_nbest=$predictions@GenerateTranslationsDev
+    > metrics
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0 .exclude=tir-0-19,tir-1-28
+    :: repo=@
+    :: comet_dir=@
+    :: bleurt_dir=@
+    :: bleurt_venv=@
+    :: nbest=@
+
+
+task ComputeMetricsTest calls ComputeMetrics
+    < src=$test_src@GetDevTestData
+    < tgt=$test_tgt@GetDevTestData
+    < pred_nbest=$predictions@GenerateTranslationsTest
+    > metrics
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0 .exclude=tir-0-19,tir-1-28
+    :: repo=@
+    :: comet_dir=@
+    :: bleurt_dir=@
+    :: bleurt_venv=@
+    :: nbest=@
+
+
 task ComputeFeaturesTest calls ComputeFeatures
     < src=$test_src@GetDevTestData
     < scores=@GenerateTranslationsTest
     < pred_nbest=$predictions@GenerateTranslationsTest
     > features
-    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0 
+    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=32000M .time=0  .exclude=tir-0-19,tir-1-28
     :: repo=@
     :: src_lang=@
     :: tgt_lang=@
@@ -455,9 +480,10 @@ task RerankTranslations
     < dev_metrics=$metrics@ComputeMetricsDev
     < test_nbest=$predictions@GenerateTranslationsTest
     < test_features=$features@ComputeFeaturesTest
+    < test_metrics=$metrics@ComputeMetricsTest
     > reranked_nbest
     > reranked_features
-    :: .submitter=@ .cpus=5 .mem=32000M .time=0
+    :: .submitter=@ .cpus=5 .mem=32000M .time=0  .exclude=tir-0-19,tir-1-28,tir-1-11
     :: repo=@
     :: comet_dir=@
     :: rerank=@
@@ -467,13 +493,19 @@ task RerankTranslations
 {
     if [ "$rerank" != false ]; then
         echo "$rerank_weights" > weights.txt
+        cp $test_features test_features.txt
         
         if [ "$rerank" == "train" ]; then
             mv weights.txt weights_init.txt
             sed -rn "s/.*${rerank_eval}=([-0-9.]+).*/\1 1/p" $dev_metrics > dev_metric
             $repo/scripts/rerank_train.sh weights_init.txt $dev_features $dev_tgt dev_metric > weights.txt
         fi
-        $repo/scripts/rerank.sh weights.txt $test_features $reranked_features
+
+        if [ "$rerank" == "oracle" ]; then
+            paste -d ' ' $test_features $test_metrics > test_features.txt
+        fi
+
+        $repo/scripts/rerank.sh weights.txt test_features.txt $reranked_features
     else
         cp $test_features $reranked_features
     fi
@@ -494,7 +526,7 @@ task MBRPairwiseCompare
     < test_src=$test_src@GetDevTestData
     < test_nbest=$reranked_nbest@RerankTranslations
     > mbr_matrixes="mbr_matrixes.npy"
-    :: .submitter=@ .gres="gpu:1" .cpus=5 .mem=64000M .time=0
+    :: .submitter=@ .cpus=5 .mem=64000M .time=0 .exclude="tir-0-[7,9,13,15,17,19],tir-1-13,tir-1-28,tir-1-11"
     :: repo=@
     :: comet_dir=@
     :: bleurt_dir=@
@@ -533,7 +565,7 @@ task MBRDecoding
     < test_nbest=$reranked_nbest@RerankTranslations
     < mbr_matrixes=@MBRPairwiseCompare
     > predictions
-    :: .submitter=@ .cpus=5 .mem=32000M .time=0 
+    :: .submitter=@ .cpus=5 .mem=32000M .time=0 .exclude=tir-0-19,tir-1-28,tir-1-11
     :: repo=@
     :: mbr_samples=@
     :: nbest=@
@@ -560,7 +592,7 @@ task ScoreTranslations
             true=$predictions@MBRDecoding
     )
     > score
-    :: .submitter=@ .gres="gpu:1" .cpus=4 .mem=16000M .time=0
+    :: .submitter=@ .gres="gpu:1" .cpus=4 .mem=16000M .time=0  .exclude=tir-0-19,tir-1-28,tir-1-11
     :: repo=@
     :: src_lang=@
     :: tgt_lang=@
