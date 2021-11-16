@@ -145,8 +145,11 @@ plan Baseline {
     reach ScoreTranslations via (UsePretrained: false) * (Rerank: false) * (UseLabelSmooth: *) * (TargetLang: *)
 }
 
-plan Rerank {
-    reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: *) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 5 20 50 100 200) * (Rerank: train) * (RerankEval: *)
+plan FixedRerank {
+    reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: *) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 5 20 50 100 200) * (Rerank: fixed) * (RerankMetric: *)
+}
+
+plan TunedRerank {
     reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: *) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 5 20 50 100 200) * (Rerank: fixed) * (RerankMetric: *)
 }
 
@@ -155,6 +158,9 @@ plan MBRDecoding {
     reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: *) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 20) * (MBRSamples: 20) * (MBRDecoding: true) * (MBRMetric: *)
     reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: *) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 50) * (MBRSamples: 50) * (MBRDecoding: true) * (MBRMetric: *)
     reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: *) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 100) * (MBRSamples: 100) * (MBRDecoding: true) * (MBRMetric: *)
+}
+
+plan TwoStage {
     reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: *) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 200) * (Rerank: train) * (RerankEval: comet) * (MBRSamples: 5 20 50 100) * (MBRDecoding: true) * (MBRMetric: comet)
     reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: *) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 200) * (Rerank: train) * (RerankEval: bleurt) * (MBRSamples: 5 20 50 100) * (MBRDecoding: true) * (MBRMetric: bleurt)
     reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: *) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 200) * (Rerank: train) * (RerankEval: bleu) * (MBRSamples: 5 20 50 100) * (MBRDecoding: true) * (MBRMetric: bleu)
