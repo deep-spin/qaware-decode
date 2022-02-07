@@ -116,7 +116,7 @@ def main():
     else:
         metric_matrixes = None
         if args.metric == "comet":
-            from qaware_decoding.metrics import comet
+            from metrics import comet
 
             assert (
                 args.comet_dir is not None
@@ -126,7 +126,7 @@ def main():
             )
 
         if args.metric == "bleurt":
-            from qaware_decoding.metrics import bleurt
+            from metrics import bleurt
 
             assert (
                 args.bleurt_dir is not None
@@ -136,7 +136,7 @@ def main():
             )
 
         if args.metric == "bleu":
-            from qaware_decoding.metrics import bleu
+            from metrics import bleu
 
             metric = bleu
 
