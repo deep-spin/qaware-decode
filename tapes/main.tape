@@ -526,7 +526,7 @@ task MBRPairwiseCompare
     < test_src=$test_src@GetDevTestData
     < test_nbest=$reranked_nbest@RerankTranslations
     > mbr_matrixes="mbr_matrixes.npy"
-    :: .submitter=@ .cpus=5 .mem=64000M .time=0 .exclude="tir-0-[7,9,13,15,17,19],tir-1-13,tir-1-28,tir-1-11"
+    :: .submitter=@ .cpus=5 .gres="gpu:1" .mem=64000M .time=0 .exclude="tir-0-[7,9,13,15,17,19],tir-1-13,tir-1-28,tir-1-11"
     :: repo=@
     :: comet_dir=@
     :: bleurt_dir=@
@@ -565,7 +565,7 @@ task MBRDecoding
     < test_nbest=$reranked_nbest@RerankTranslations
     < mbr_matrixes=@MBRPairwiseCompare
     > predictions
-    :: .submitter=@ .cpus=5 .mem=32000M .time=0 .exclude=tir-0-19,tir-1-28,tir-1-11
+    :: .submitter=@ .cpus=5 .gres="gpu:1" .mem=32000M .time=0 .exclude=tir-0-19,tir-1-28,tir-1-11
     :: repo=@
     :: mbr_samples=@
     :: nbest=@
