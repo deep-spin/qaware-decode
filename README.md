@@ -1,7 +1,12 @@
 Quality-Aware Decoding
 ===
 
-A repository for experiments in quality-aware decoding.
+This is the official repository for the paper [Quality-Aware Decoding for Neural Machine Translation]().
+
+<hr />
+
+> **Abstract:** *Despite the progress in machine translation quality estimation and evaluation in the last years, decoding in neural machine translation (NMT) is mostly oblivious to this and centers around finding the most probable translation according to the model (MAP decoding), approximated with beam search.  maximum-a-posteriori} (MAP) translation. In this paper, we bring together these two lines of research and propose \emph{quality-aware decoding} for NMT, by leveraging recent breakthroughs in reference-free and reference-based MT evaluation through various inference methods like $N$-best reranking and minimum Bayes risk decoding. We perform an extensive comparison of various possible {candidate generation} and {ranking} methods across four datasets and two model classes and find that quality-aware decoding consistently outperforms MAP-based decoding according  both to state-of-the-art automatic metrics (COMET and BLEURT) and to human assessments.*
+<hr />
 
 ## Setup 
 
