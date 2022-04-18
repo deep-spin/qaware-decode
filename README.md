@@ -22,8 +22,8 @@ This will install the package, plus the necessary dependencies for the COMET-fam
 You can also install other metrics with the optional dependency groups
     
 ```bash
-pip install .[mbart-qe]
-pip install .[transquest]
+pip install ".[mbart-qe]"
+pip install ".[transquest]"
 ```
 
 Performing quality-aware decoding is as simple as passing the n-best hypothesis list to the `qaware-decode` package.
@@ -39,7 +39,7 @@ qaware-mbr $hyps --src $src -n $nbest > -decode.txt
 To perform MBR, we provide the `qaware-mbr` command. You can specify the metric to perform with the `--metric` option.
 
 ```bash
-qaware-mbr $hyps --src $src -n $nbest --metric $metric > mbr-decode.txt
+qaware-mbr $hyps --src $src -n $nbest --metric bleurt > mbr-decode.txt
 ```
 
 ## N-best reranking
@@ -48,23 +48,24 @@ To perform N-best reranking, we provide the `qaware-rerank` command.
 You can specify the QE metric to use for reranking `--qe-metric` option.
 
 ```bash
-qaware-rerank $hyps --src $src -n $nbest --qe-metric $qe_metric \
+qaware-rerank $hyps --src $src -n $nbest --qe-metric comet_qe \
     > rerank-decode.txt
 ```
 
 You can also *train* a reranker to use multiple metrics when reranking, as well as the original probabilities given by the model.
 To do this you need to have a *dev* set with associated references. You also need [travatar](https://github.com/neubig/travatar) installed. 
 
-To train a reranked, just specify the `--train-reranker` option.
+To train a reranked, just specify the `--train-reranker` option. You can specify what metric to optimize over with `--rerank-metric`.
 
 ```bash
 qaware-rerank $dev_hyps \
             --src $dev_src \
             --refs $dev_refs \
             --scores $dev_scores \
-            --qe-metric $qe_metric_1 $qe_metric_2 \
+            --qe-metric comet_qe mbart_qe \
             --num-samples $nbest \
             --train-reranker learned_weights.json \
+            --rerank-metric comet \
     > /dev/null 
 
 ```
