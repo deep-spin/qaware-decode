@@ -10,38 +10,72 @@ This is the official repository for the paper [Quality-Aware Decoding for Neural
 
 # The `qAware-decode` package
 
+We provide a package to make quality-aware decoding more acessible to the users.
+Start by installing the package with
+
 ```bash
 pip install .
 ```
+
+This will install the package, plus the necessary dependencies for the COMET-family metrics.
+You can also install other metrics with the optional dependency groups
     
 ```bash
 pip install .[mbart-qe]
+pip install .[transquest]
 ```
 
-## Minimum Bayes risk decoding
+Performing quality-aware decoding is as simple as passing the n-best hypothesis list to the `qAware-decode` package.
+For examplo, to apply MBR with COMET on a n-best list extracted with fairseq
 
 ```bash
-qaware-mbr $hyps --src $src -n $nbest > mbr-decode.txt
+fairseq-generate ... --nbest $nbest | grep ^H | cut -c 3- | sort -n | cut -f3- > $hyps
+qaware-mbr $hyps --src $src -n $nbest > -decode.txt
+```
+
+## Minimum Bayes Risk (MBR) decoding
+
+To perform MBR, we provide the `qaware-mbr` command. You can specify the metric to perform with the `--metric` option.
+
+```bash
+qaware-mbr $hyps --src $src -n $nbest --metric $metric > mbr-decode.txt
 ```
 
 ## N-best reranking
 
+To perform N-best reranking, we provide the `qaware-rerank` command. 
+You can specify the QE metric to use for reranking `--qe-metric` option.
+
 ```bash
-qaware-rerank $hyps --src $src -n $nbest > rerank-decode.txt
+qaware-rerank $hyps --src $src -n $nbest --qe-metric $qe_metric \
+    > rerank-decode.txt
 ```
+
+You can also *train* a reranker to use multiple metrics when reranking, as well as the original probabilities given by the model.
+To do this you need to have a *dev* set with associated references. You also need [travatar](https://github.com/neubig/travatar) installed. 
+
+To train a reranked, just specify the `--train-reranker` option.
 
 ```bash
 qaware-rerank $dev_hyps \
             --src $dev_src \
             --refs $dev_refs \
             --scores $dev_scores \
+            --qe-metric $qe_metric_1 $qe_metric_2 \
             --num-samples $nbest \
             --train-reranker learned_weights.json \
     > /dev/null 
+
+```
+
+Then you can use the learned weights to rerank on the test set
+
+```bash
 qaware-rerank $hyps \
             --src $src \
             --refs $refs \
             --scores $scores \
+            --qe-metric $qe_metric_1 $qe_metric_2 \
             --num-samples $nbest \
             --weights learned_weights.json \
     > t-rerank-decode.txt
