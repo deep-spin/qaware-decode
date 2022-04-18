@@ -8,13 +8,14 @@ This is the official repository for the paper [Quality-Aware Decoding for Neural
 > **Abstract:** *Despite the progress in machine translation quality estimation and evaluation in the last years, decoding in neural machine translation (NMT) is mostly oblivious to this and centers around finding the most probable translation according to the model (MAP decoding), approximated with beam search.  maximum-a-posteriori} (MAP) translation. In this paper, we bring together these two lines of research and propose \emph{quality-aware decoding} for NMT, by leveraging recent breakthroughs in reference-free and reference-based MT evaluation through various inference methods like $N$-best reranking and minimum Bayes risk decoding. We perform an extensive comparison of various possible {candidate generation} and {ranking} methods across four datasets and two model classes and find that quality-aware decoding consistently outperforms MAP-based decoding according  both to state-of-the-art automatic metrics (COMET and BLEURT) and to human assessments.*
 <hr />
 
-# The `qAware-decode` package
+# The `qaware-decode` package
 
 We provide a package to make quality-aware decoding more acessible to the users.
 Start by installing the package with
 
 ```bash
-pip install .
+git clone https://github.com/CoderPat/qaware-decode.git && cd qaware-decode
+pip install -e .
 ```
 
 This will install the package, plus the necessary dependencies for the COMET-family metrics.
@@ -25,7 +26,7 @@ pip install .[mbart-qe]
 pip install .[transquest]
 ```
 
-Performing quality-aware decoding is as simple as passing the n-best hypothesis list to the `qAware-decode` package.
+Performing quality-aware decoding is as simple as passing the n-best hypothesis list to the `qaware-decode` package.
 For examplo, to apply MBR with COMET on a n-best list extracted with fairseq
 
 ```bash
