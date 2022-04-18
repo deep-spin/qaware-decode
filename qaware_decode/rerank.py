@@ -64,7 +64,7 @@ def parse_args():
     )
     parser.add_argument(
         "--qe-metrics",
-        default="comet_qe",
+        default=["comet_qe"],
         choices=["comet_qe", "mbart_qe", "transquest"],
         nargs="+",
         help="Metric to use. Currently only bleu, comet and bleurt are supported. Check `qaware_decode/metrics.py` for more details.",
@@ -89,7 +89,7 @@ def parse_args():
         help="When training reranker, metric to optimize.",
     )
     parser.add_argument(
-        "--eval-metric",
+        "--eval-metrics",
         default=["bleu", "comet"],
         choices=["bleu", "comet", "bleurt"],
         help="Metric(s) to evaluate the chosen hypothesis",
@@ -97,19 +97,25 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--langpair",
+        default=None,
+        type=str,
+        help="Language pair for source/target. Necessary for mbart-qe"
+    )
+    parser.add_argument(
         "--comet-dir",
         default=".cache/qaware_decode/comet",
-        help="Directory containing the comet models. Only necessary if metric is comet",
+        help="Directory containing the comet models.",
     )
     parser.add_argument(
         "--mbartqe-dir",
         default=".cache/qaware_decode/mbart-qe",
-        help="Directory containing the comet models. Only necessary if metric is comet",
+        help="Directory containing the mbart-qe models.",
     )
     parser.add_argument(
         "--bleurt-dir",
         default=None,
-        help="Directory containing the comet models. Only necessary if metric is comet",
+        help="Directory containing the bleurt models",
     )
 
     parser.add_argument(
@@ -282,7 +288,7 @@ def train_reranker(
     # fmt: on
     weights_out_file.seek(0)
     learned_weights = {
-        feat.split("=")[0]: feat.split("=")[1]
+        feat.split("=")[0]: float(feat.split("=")[1])
         for feat in weights_out_file.readlines()[0].split(" ")
     }
     return learned_weights
@@ -325,7 +331,7 @@ def main():
             qe_metrics.append(wrapped_partial(comet_qe, cometqe_dir=args.comet_dir))
         elif qe_metric == "mbart_qe":
             assert args.mbartqe_dir is not None
-            qe_metrics.append(wrapped_partial(mbart_qe, mbartqe_dir=args.mbartqe_dir))
+            qe_metrics.append(wrapped_partial(mbart_qe, mbartqe_dir=args.mbartqe_dir, langpair=args.langpair))
         elif qe_metric == "tranquest":
             qe_metrics.append(transquest)
 
@@ -350,7 +356,7 @@ def main():
         assert len(refs) == len(srcs)
 
         decode_metrics = []
-        for metric in args.eval_metric:
+        for metric in args.eval_metrics:
             metric_fn = build_metric_fn(
                 metric,
                 comet_dir=args.comet_dir,
@@ -378,9 +384,7 @@ def main():
         )
         metric_scores = compute_hyps_metric(hyps, srcs, refs, metric=metric_fn)
 
-        import ipdb
 
-        ipdb.set_trace()
         learned_weights = train_reranker(
             hyps=hyps,
             features=features,

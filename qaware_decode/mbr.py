@@ -35,7 +35,7 @@ def parse_args():
         help="Metric to use. Currently only bleu, comet and bleurt are supported. Check `qaware_decode/metrics.py` for more details.",
     )
     parser.add_argument(
-        "--eval-metric",
+        "--eval-metrics",
         default=["bleu", "comet"],
         choices=["bleu", "comet", "bleurt"],
         help="Metric(s) to evaluate the chosen hypothesis",
@@ -49,13 +49,13 @@ def parse_args():
     )
     parser.add_argument(
         "--comet-dir",
-        default=None,
-        help="Directory containing the comet models. Only necessary if metric is comet",
+        default=".cache/qaware_decode/comet",
+        help="Directory containing the comet models.",
     )
     parser.add_argument(
         "--bleurt-dir",
-        default=None,
-        help="Directory containing the bleurt models. Only necessary if metric is bleurt",
+        default=".cache/qaware_decode/bleurt",
+        help="Directory containing the bleurt models.",
     )
     parser.add_argument(
         "--n-cpus",
@@ -212,7 +212,7 @@ def main():
         assert len(refs) == len(srcs)
 
         decode_metrics = []
-        for metric in args.eval_metric:
+        for metric in args.eval_metrics:
             metric_fn = build_metric_fn(
                 metric,
                 comet_dir=args.comet_dir,
