@@ -1,7 +1,7 @@
-git+git://github.com/pytorch/fairseq.git@main
-git+git://github.com/CoderPat/COMET.git@master
-git+git://github.com/Unbabel/wmt21-qe-task.git@MBART-without-uncertainty
---force-reinstall git+git://github.com/mjpost/sacrebleu@master
+#git+https://github.com/pytorch/fairseq.git@main
+git+https://github.com/CoderPat/COMET.git@master
+git+https://github.com/Unbabel/wmt21-qe-task.git@MBART-without-uncertainty
+git+https://github.com/mjpost/sacrebleu@master
 transquest
 sentencepiece
 sacremoses

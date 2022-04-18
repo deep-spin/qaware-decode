@@ -1,3 +1,5 @@
+[![Python Lint](https://github.com/CoderPat/qaware-decode/actions/workflows/pylint.yml/badge.svg?branch=public-release)](https://github.com/CoderPat/qaware-decode/actions/workflows/pylint.yml)
+
 Quality-Aware Decoding
 ===
 
@@ -10,7 +12,8 @@ This is the official repository for the paper [Quality-Aware Decoding for Neural
 
 # The `qaware-decode` package
 
-We provide a package to make quality-aware decoding more accessible to the users.
+We provide a package to make quality-aware decoding more accessible to practitioners/researchers trying to improve their MT models.
+
 Start by installing the package with
 
 ```bash
@@ -26,17 +29,24 @@ pip install ".[mbart-qe]"
 pip install ".[transquest]"
 ```
 
-Performing quality-aware decoding is as simple as passing the n-best hypothesis list to the `qaware-decode` package.
+Performing quality-aware decoding is as simple as passing the n-best hypothesis list one of the `qaware-decode` commands.
 For example, to apply MBR with COMET on an n-best list extracted with `fairseq`, just do
 
 ```bash
 fairseq-generate ... --nbest $nbest | grep ^H | cut -c 3- | sort -n | cut -f3- > $hyps
-qaware-mbr $hyps --src $src -n $nbest > -decode.txt
+qaware-mbr $hyps --src $src -n $nbest > qaware-decode.txt
+```
+
+If you pass references, the library wil also perform evaluation of the decoded sentences.
+
+```bash
+qaware-mbr $hyps --src $src -n $nbest --refs $refs > qaware-decode.txt
 ```
 
 ## Minimum Bayes Risk (MBR)
 
-To perform MBR, we provide the `qaware-mbr` command. You can specify the metric to perform with the `--metric` option.
+To perform MBR, we provide the `qaware-mbr` command. 
+You can specify the metric to perform with the `--metric` option.
 
 ```bash
 qaware-mbr $hyps --src $src -n $nbest --metric bleurt > mbr-decode.txt
@@ -168,4 +178,4 @@ Then try running one of the existing plans by executing
 ducttape tapes/main.tape -C $my_tconf -p Baseline -j $num_jobs
 ```
 
-`$num_jobs` corresponds to the number of jobs to run in parallel. `num_jobs=8` will run 8 branches in parallel if possible (correspondely using 8 GPUs)
+`$num_jobs` corresponds to the number of jobs to r
