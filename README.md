@@ -27,7 +27,7 @@ pip install ".[transquest]"
 ```
 
 Performing quality-aware decoding is as simple as passing the n-best hypothesis list to the `qaware-decode` package.
-For examplo, to apply MBR with COMET on an n-best list extracted with fairseq
+For example, to apply MBR with COMET on an n-best list extracted with `fairseq`, just do
 
 ```bash
 fairseq-generate ... --nbest $nbest | grep ^H | cut -c 3- | sort -n | cut -f3- > $hyps
