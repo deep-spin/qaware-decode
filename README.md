@@ -1,6 +1,6 @@
 Quality-Aware Decoding
 ===
-[![Python Lint](https://github.com/CoderPat/qaware-decode/actions/workflows/pylint.yml/badge.svg?branch=public-release)](https://github.com/CoderPat/qaware-decode/actions/workflows/pylint.yml)
+[![Python Lint](https://github.com/CoderPat/qaware-decode/actions/workflows/pylint.yml/badge.svg)](https://github.com/CoderPat/qaware-decode/actions/workflows/pylint.yml)
 
 
 This is the official repository for the paper [Quality-Aware Decoding for Neural Machine Translation]().
