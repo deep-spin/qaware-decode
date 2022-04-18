@@ -1,6 +1,8 @@
 from joblib import Parallel
 from tqdm import tqdm
 
+from functools import partial, wraps
+
 
 class ProgressParallel(Parallel):
     def __init__(self, use_tqdm=True, total=None, *args, **kwargs):
@@ -17,3 +19,7 @@ class ProgressParallel(Parallel):
             self._pbar.total = self.n_dispatched_tasks
         self._pbar.n = self.n_completed_tasks
         self._pbar.refresh()
+
+
+def wrapped_partial(f, *args, **kwargs):
+    return wraps(f)(partial(f, *args, **kwargs))

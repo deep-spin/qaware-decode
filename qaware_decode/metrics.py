@@ -1,15 +1,47 @@
 import numpy as np
+from typing import List
 
-from joblib import Parallel, delayed
+from joblib import delayed
 from tqdm import tqdm
+from functools import partial
 
 from .utils import ProgressParallel
 
 
+def build_metric_fn(
+    metric_name: str,
+    comet_dir: str = None,
+    bleurt_dir: str = None,
+    n_cpus=1,
+    n_gpus=1,
+    batch_size: int = 64,
+    progress_bar: bool = True,
+    only_sentence_level: bool = True,
+):
+    if metric_name == "comet":
+        assert comet_dir is not None
+        return partial(
+            comet,
+            comet_dir=comet_dir,
+            comet_bsize=batch_size,
+            progress_bar=progress_bar,
+        )
+    elif metric_name == "bleurt":
+        assert bleurt_dir is not None
+        return partial(bleurt, bleurt_dir=bleurt_dir, bleurt_bsize=batch_size)
+    elif metric_name == "bleu":
+        return partial(
+            bleu,
+            progress_bar=progress_bar,
+            parallel=n_cpus,
+            only_sentence_level=only_sentence_level,
+        )
+
+
 def comet(
-    hyps: list[str],
-    refs: list[str],
-    srcs: list[str],
+    hyps: List[str],
+    refs: List[str],
+    srcs: List[str],
     comet_dir: str = None,
     comet_model: str = "wmt20-comet-da",
     comet_bsize: int = 64,
@@ -33,9 +65,9 @@ def comet(
 
 
 def bleurt(
-    hyps: list[str],
-    refs: list[str],
-    srcs: list[str] = None,
+    hyps: List[str],
+    refs: List[str],
+    srcs: List[str] = None,
     bleurt_dir: str = None,
     bleurt_bsize: str = 64,
 ):
@@ -52,17 +84,18 @@ def bleurt(
 
 
 def bleu(
-    hyps: list[str],
-    refs: list[str],
-    srcs: list[str] = None,
+    hyps: List[str],
+    refs: List[str],
+    srcs: List[str] = None,
     progress_bar: bool = True,
     parallel: int = 1,
+    only_sentence_level: bool = True,
 ):
     import sacrebleu
 
     bleu_fn = lambda *args: sacrebleu.sentence_bleu(*args).score
     iterator = (
-        delayed(bleu_fn)(ref, [hyp]) if parallel > 1 else bleu_fn(ref, [hyp])
+        delayed(bleu_fn)(hyp, [ref]) if parallel > 1 else bleu_fn(hyp, [ref])
         for hyp, ref in zip(hyps, refs)
     )
 
@@ -77,4 +110,9 @@ def bleu(
         iterator = tqdm(iterator, total=len(hyps))
 
     sentence_scores = list(iterator)
-    return sentence_scores
+
+    corpus_score = None
+    if not only_sentence_level:
+        corpus_score = sacrebleu.corpus_bleu(hyps, [refs]).score
+
+    return sentence_scores, corpus_score

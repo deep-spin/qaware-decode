@@ -1,6 +1,11 @@
 import numpy as np
-from functools import partial
 import argparse
+
+from typing import List
+
+import sys
+
+from qaware_decode.metrics import build_metric_fn
 
 
 def parse_args():
@@ -11,16 +16,30 @@ def parse_args():
         help="File containing all hypothesis grouped per sentence, with ``num_samples*sentences`` ",
     )
     parser.add_argument(
+        "-n",
         "--num-samples",
         type=int,
         required=True,
         help="Number of hypothesis per sentence",
     )
     parser.add_argument(
+        "--refs",
+        default=None,
+        type=str,
+        help="File containing reference translations. If passed, will be used for evaluating the chosen hypothesis.",
+    )
+    parser.add_argument(
         "--metric",
-        default="comet",
+        default="bleu",
         choices=["bleu", "comet", "bleurt"],
         help="Metric to use. Currently only bleu, comet and bleurt are supported. Check `qaware_decode/metrics.py` for more details.",
+    )
+    parser.add_argument(
+        "--eval-metric",
+        default=["bleu", "comet"],
+        choices=["bleu", "comet", "bleurt"],
+        help="Metric(s) to evaluate the chosen hypothesis",
+        nargs="+",
     )
     parser.add_argument(
         "--num-subsamples",
@@ -68,13 +87,13 @@ def parse_args():
 
 
 def mbr_corpus(
-    hyps: list[list[str]],
+    hyps: List[List[str]],
     metric: callable,
-    srcs: list[str] = None,
+    srcs: List[str] = None,
     num_subsamples: int = None,
     aggregation: str = "mean",
-    scores: list[list[float]] = None,
-) -> list[list[float]]:
+    scores: List[List[float]] = None,
+) -> List[List[float]]:
     """
     Computes per-sample MBR for a corpus. Returns the (negative) risk of each sample
 
@@ -91,10 +110,6 @@ def mbr_corpus(
 
     if srcs is not None:
         assert len(hyps) == len(srcs), f"{len(hyps)} != {len(srcs)}"
-
-    assert (
-        metric is not None or metric_matrixes is not None
-    ), "metric or matrixes must be specified"
 
     num_samples = len(hyps[0])
     use_subsampling = num_subsamples is not None and num_subsamples < num_samples
@@ -164,27 +179,12 @@ def main():
         with open(args.src, encoding="utf-8") as src_f:
             srcs = [line.strip() for line in src_f.readlines()]
 
-    if args.metric == "comet":
-        from qaware_decode.metrics import comet
-
-        assert (
-            args.comet_dir is not None
-        ), "comet_dir needs to specified for comet metric"
-        metric = partial(comet, comet_dir=args.comet_dir)
-
-    if args.metric == "bleurt":
-        from qaware_decode.metrics import bleurt
-
-        assert (
-            args.bleurt_dir is not None
-        ), "bleurt_dir needs to specified for bleurt metric"
-
-        metric = partial(bleurt, bleurt_dir=args.bleurt_dir)
-
-    if args.metric == "bleu":
-        from qaware_decode.metrics import bleu
-
-        metric = partial(bleu, parallel=args.n_cpus)
+    metric = build_metric_fn(
+        args.metric,
+        comet_dir=args.comet_dir,
+        bleurt_dir=args.bleurt_dir,
+        n_cpus=args.n_cpus,
+    )
 
     neg_risk = mbr_corpus(
         hyps,
@@ -197,11 +197,35 @@ def main():
         mbr_utils = open(args.save_mbr_utils, "w")
 
     # print best candidates
+    predictions = []
     for sample_hyps, sample_utilities in zip(hyps, neg_risk):
-        print(sample_hyps[np.argmax(sample_utilities)])
+        predictions.append(sample_hyps[np.argmax(sample_utilities)])
+        print(predictions[-1])
         if args.save_mbr_utils is not None:
             for util in sample_utilities:
                 print(f"mbr-util={util}", file=mbr_utils)
+
+    if args.refs is not None:
+        with open(args.refs, encoding="utf-8") as ref_f:
+            refs = [line.strip() for line in ref_f.readlines()]
+
+        assert len(refs) == len(srcs)
+
+        decode_metrics = []
+        for metric in args.eval_metric:
+            metric_fn = build_metric_fn(
+                metric,
+                comet_dir=args.comet_dir,
+                bleurt_dir=args.bleurt_dir,
+                n_cpus=args.n_cpus,
+                n_gpus=args.n_gpus,
+                only_sentence_level=False,
+            )
+            decode_metrics.append(
+                f"{metric}={metric_fn(predictions, refs, srcs=srcs)[1]}"
+            )
+
+        print(" ".join(decode_metrics), file=sys.stderr)
 
 
 if __name__ == "__main__":
