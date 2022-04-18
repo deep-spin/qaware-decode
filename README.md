@@ -8,6 +8,48 @@ This is the official repository for the paper [Quality-Aware Decoding for Neural
 > **Abstract:** *Despite the progress in machine translation quality estimation and evaluation in the last years, decoding in neural machine translation (NMT) is mostly oblivious to this and centers around finding the most probable translation according to the model (MAP decoding), approximated with beam search.  maximum-a-posteriori} (MAP) translation. In this paper, we bring together these two lines of research and propose \emph{quality-aware decoding} for NMT, by leveraging recent breakthroughs in reference-free and reference-based MT evaluation through various inference methods like $N$-best reranking and minimum Bayes risk decoding. We perform an extensive comparison of various possible {candidate generation} and {ranking} methods across four datasets and two model classes and find that quality-aware decoding consistently outperforms MAP-based decoding according  both to state-of-the-art automatic metrics (COMET and BLEURT) and to human assessments.*
 <hr />
 
+# The `qAware-decode` package
+
+```bash
+pip install .
+```
+    
+```bash
+pip install .[mbart-qe]
+```
+
+## Minimum Bayes risk decoding
+
+```bash
+qaware-mbr $hyps --src $src -n $nbest > mbr-decode.txt
+```
+
+## N-best reranking
+
+```bash
+qaware-rerank $hyps --src $src -n $nbest > rerank-decode.txt
+```
+
+```bash
+qaware-rerank $dev_hyps \
+            --src $dev_src \
+            --refs $dev_refs \
+            --scores $dev_scores \
+            --num-samples $nbest \
+            --train-reranker learned_weights.json \
+    > /dev/null 
+qaware-rerank $hyps \
+            --src $src \
+            --refs $refs \
+            --scores $scores \
+            --num-samples $nbest \
+            --weights learned_weights.json \
+    > t-rerank-decode.txt
+```
+
+
+# Reproducing the results of the paper
+
 ## Setup 
 
 Start by installing the correct version of pytorch for your system.
