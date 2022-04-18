@@ -10,7 +10,7 @@ This is the official repository for the paper [Quality-Aware Decoding for Neural
 
 # The `qaware-decode` package
 
-We provide a package to make quality-aware decoding more acessible to the users.
+We provide a package to make quality-aware decoding more accessible to the users.
 Start by installing the package with
 
 ```bash
@@ -27,14 +27,14 @@ pip install ".[transquest]"
 ```
 
 Performing quality-aware decoding is as simple as passing the n-best hypothesis list to the `qaware-decode` package.
-For examplo, to apply MBR with COMET on a n-best list extracted with fairseq
+For examplo, to apply MBR with COMET on an n-best list extracted with fairseq
 
 ```bash
 fairseq-generate ... --nbest $nbest | grep ^H | cut -c 3- | sort -n | cut -f3- > $hyps
 qaware-mbr $hyps --src $src -n $nbest > -decode.txt
 ```
 
-## Minimum Bayes Risk (MBR) decoding
+## Minimum Bayes Risk (MBR)
 
 To perform MBR, we provide the `qaware-mbr` command. You can specify the metric to perform with the `--metric` option.
 
@@ -42,44 +42,49 @@ To perform MBR, we provide the `qaware-mbr` command. You can specify the metric 
 qaware-mbr $hyps --src $src -n $nbest --metric bleurt > mbr-decode.txt
 ```
 
-## N-best reranking
+## N-best Reranking
 
 To perform N-best reranking, we provide the `qaware-rerank` command. 
-You can specify the QE metric to use for reranking `--qe-metric` option.
+You can specify the QE metric to use for reranking `--qe-metrics` option.
 
 ```bash
-qaware-rerank $hyps --src $src -n $nbest --qe-metric comet_qe \
+qaware-rerank $hyps --src $src -n $nbest --qe-metrics comet_qe \
     > rerank-decode.txt
 ```
 
 You can also *train* a reranker to use multiple metrics when reranking, as well as the original probabilities given by the model.
 To do this you need to have a *dev* set with associated references. You also need [travatar](https://github.com/neubig/travatar) installed. 
 
-To train a reranked, just specify the `--train-reranker` option. You can specify what metric to optimize over with `--rerank-metric`.
+To train a reranked, just specify the `--train-reranker` option. 
+You can specify what metric to optimize over with `--rerank-metric`.
 
 ```bash
-qaware-rerank $dev_hyps \
-            --src $dev_src \
-            --refs $dev_refs \
-            --scores $dev_scores \
-            --qe-metric comet_qe mbart_qe \
-            --num-samples $nbest \
-            --train-reranker learned_weights.json \
-            --rerank-metric comet \
+qaware-rerank 
+    $dev_hyps \
+    --src $dev_src \
+    --refs $dev_refs \
+    --scores $dev_scores \
+    --num-samples $nbest \
+    --qe-metrics comet_qe mbart_qe \
+    --langpair en-de \
+    --train-reranker learned_weights.json \
+    --rerank-metric comet \
     > /dev/null 
 
 ```
 
-Then you can use the learned weights to rerank on the test set
+Then you can use the learned weights to rerank another set of hypotheses.
 
 ```bash
-qaware-rerank $hyps \
-            --src $src \
-            --refs $refs \
-            --scores $scores \
-            --qe-metric $qe_metric_1 $qe_metric_2 \
-            --num-samples $nbest \
-            --weights learned_weights.json \
+qaware-rerank 
+    $hyps \
+    --src $src \
+    --refs $refs \
+    --scores $scores \
+    --num-samples $nbest \
+    --qe-metrics comet_qe mbart_qe \
+    --langpair en-de \
+    --weights learned_weights.json \
     > t-rerank-decode.txt
 ```
 
@@ -98,8 +103,8 @@ Experimentation is based on [ducttape](https://github.com/jhclark/ducttape).
 Start by installing it. We recommend installing [version 0.5](https://github.com/CoderPat/ducttape/releases/tag/v0.5)
 
 Finally, for experiments involving reranking, [travatar](https://github.com/neubig/travatar). 
-Refer to official documentation on how to compile it. 
-After installing set the enviroment variable to location of the compiled project
+Refer to the official documentation on how to compile it. 
+After installing set the environment variable to the location of the compiled project
 ```bash
 export TRAVATAR_DIR=/path/of/compiled/travatar/
 ```
