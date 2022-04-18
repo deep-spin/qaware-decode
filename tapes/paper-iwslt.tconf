@@ -1,0 +1,184 @@
+global {
+    ducttape_output=""
+    ducttape_experimental_imports=true
+    ducttape_experimental_submitters=true
+    submitter="shell"
+
+    repo=""
+    comet_dir=""
+    bleurt_dir=""
+    bleurt_venv=""
+    mbartqe_dir=""
+    openkiwi_model=""
+    openkiwi_venv=""    
+    
+    train_dir=(
+        TargetLang:
+            de=""
+            fr=""
+    )
+    devtest_dir=(
+        TargetLang:
+            de=""
+            fr=""
+    )
+
+    pretrained_model=""
+    is_multilingual=False
+    bpe_type=sentencepiece
+
+    use_labelsmooth=(
+        UseLabelSmooth:
+            true=true
+            false=false
+    )
+
+    src_lang=en
+    tgt_lang=(
+        TargetLang:
+            de="de"
+            fr="fr"
+    )
+
+
+    # Decoding Arguments
+    infer_batchsize=(
+        NBest:
+            5=64
+            20=32
+            50=8
+            100=2
+            200=1
+    ) 
+    sampling=(
+        DecodeType:
+            beam_search=false
+            diverse_siblings=false
+            sampling=true
+            nucleus_80=true
+            nucleus_60=true
+            nucleus_40=true
+    )
+    sampling_topp=(
+        DecodeType:
+            beam_search=""
+            diverse_siblings=""
+            sampling=""
+            nucleus_80=0.8
+            nucleus_60=0.6
+            nucleus_40=0.4
+    )
+    diversity_rate=(
+        DecodeType:
+            beam_search=-1
+            diverse_siblings=0.5
+            sampling=-1
+            nucleus_80=-1
+            nucleus_60=-1
+            nucleus_40=-1
+    )
+    rerank=(
+        Rerank:
+            false=false
+            fixed=fixed
+            train=train
+            oracle=oracle
+    )    
+    rerank_weights=(
+        Rerank:
+            false=""
+            fixed=(
+                RerankMetric:
+                    cometsrc="logprob=0 cometsrc=1 transquest=0"
+                    transquest="logprob=0 cometsrc=0 transquest=1"
+                    mbart_qe="logprob=0 cometsrc=0 transquest=0 mbart-prediction=1 mbart-uncertainty=0 openkiwi=0"
+                    openkiwi="logprob=0 cometsrc=0 transquest=0 mbart-prediction=0 mbart-uncertainty=0 openkiwi=1"
+            )
+            train="logprob=1 cometsrc=0.1 transquest=0.1 mbart-prediction=0.1 mbart-uncertainty=0.1 openkiwi=0.1"
+            oracle=(
+                RerankEval:
+                    bleu="bleu=1"
+                    comet="comet=1"
+                    bleurt="bleurt=1"
+            )
+
+    )
+    rerank_eval=(
+        Rerank:
+            false=""
+            fixed=""
+            train=(
+                RerankEval:
+                    bleu="bleu"
+                    comet="comet"
+                    bleurt="bleurt"
+            )
+            oracle=""
+    )    
+
+    mbr_metric=(
+        MBRMetric:
+            bleu="bleu"
+            comet="comet"
+            bleurt="bleurt"
+    )
+    mbr_samples=(
+        MBRSamples:
+            5=5
+            20=20
+            50=50
+            100=100
+    )
+    nbest=(
+        NBest:
+            5=5
+            20=20
+	          50=50
+            100=100
+            200=200
+    )
+
+    seed=9
+}
+
+plan Baseline {
+    reach ScoreTranslations via (UsePretrained: false) * (Rerank: false) * (UseLabelSmooth: *) * (TargetLang: *)
+}
+
+plan FixedRerank {
+    reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: *) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 5 20 50 100 200) * (Rerank: fixed) * (RerankMetric: *)
+}
+
+plan TunedRerank {
+    reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: *) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 5 20 50 100 200) * (Rerank: fixed) * (RerankMetric: *)
+}
+
+plan MBRDecoding {
+    reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: *) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 5) * (MBRSamples: 5) * (MBRDecoding: true) * (MBRMetric: *)
+    reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: *) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 20) * (MBRSamples: 20) * (MBRDecoding: true) * (MBRMetric: *)
+    reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: *) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 50) * (MBRSamples: 50) * (MBRDecoding: true) * (MBRMetric: *)
+    reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: *) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 100) * (MBRSamples: 100) * (MBRDecoding: true) * (MBRMetric: *)
+}
+
+plan TwoStage {
+    reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: *) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 200) * (Rerank: train) * (RerankEval: comet) * (MBRSamples: 5 20 50 100) * (MBRDecoding: true) * (MBRMetric: comet)
+    reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: *) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 200) * (Rerank: train) * (RerankEval: bleurt) * (MBRSamples: 5 20 50 100) * (MBRDecoding: true) * (MBRMetric: bleurt)
+    reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: *) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 200) * (Rerank: train) * (RerankEval: bleu) * (MBRSamples: 5 20 50 100) * (MBRDecoding: true) * (MBRMetric: bleu)
+}
+
+plan RerankOracle {
+    reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: *) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 5 20 50 100 200) * (Rerank: oracle) * (RerankEval: *)
+}
+
+plan SummaryTable {
+    reach ScoreTranslations via (UsePretrained: false) * (Rerank: false) * (UseLabelSmooth: true) * (TargetLang: de)
+    reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: true) * (TargetLang: de) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 5 20 50 100 200) * (Rerank: train) * (RerankEval: comet)
+    reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: true) * (TargetLang: de) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 5 20 50 100 200) * (Rerank: fixed) * (RerankMetric: cometsrc)
+    reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: true) * (TargetLang: de) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 5) * (MBRSamples: 5) * (MBRDecoding: true) * (MBRMetric: comet)
+    reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: true) * (TargetLang: de) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 20) * (MBRSamples: 20) * (MBRDecoding: true) * (MBRMetric: comet)
+    reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: true) * (TargetLang: de) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 50) * (MBRSamples: 50) * (MBRDecoding: true) * (MBRMetric: comet)
+    reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: true) * (TargetLang: de) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 100) * (MBRSamples: 100) * (MBRDecoding: true) * (MBRMetric: comet)
+    reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: true) * (TargetLang: de) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 200) * (Rerank: train) * (RerankEval: comet) * (MBRSamples: 5 20 50 100) * (MBRDecoding: true) * (MBRMetric: comet)
+    reach ScoreTranslations via (UsePretrained: false) * (UseLabelSmooth: true) * (TargetLang: de) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 5 20 50 100 200) * (Rerank: oracle) * (RerankEval: comet bleu)
+
+}
