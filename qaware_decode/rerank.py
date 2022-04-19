@@ -100,7 +100,7 @@ def parse_args():
         "--langpair",
         default=None,
         type=str,
-        help="Language pair for source/target. Necessary for mbart-qe"
+        help="Language pair for source/target. Necessary for mbart-qe",
     )
     parser.add_argument(
         "--comet-dir",
@@ -331,7 +331,11 @@ def main():
             qe_metrics.append(wrapped_partial(comet_qe, cometqe_dir=args.comet_dir))
         elif qe_metric == "mbart_qe":
             assert args.mbartqe_dir is not None
-            qe_metrics.append(wrapped_partial(mbart_qe, mbartqe_dir=args.mbartqe_dir, langpair=args.langpair))
+            qe_metrics.append(
+                wrapped_partial(
+                    mbart_qe, mbartqe_dir=args.mbartqe_dir, langpair=args.langpair
+                )
+            )
         elif qe_metric == "tranquest":
             qe_metrics.append(transquest)
 
@@ -383,7 +387,6 @@ def main():
             n_gpus=args.n_gpus,
         )
         metric_scores = compute_hyps_metric(hyps, srcs, refs, metric=metric_fn)
-
 
         learned_weights = train_reranker(
             hyps=hyps,
