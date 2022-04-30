@@ -1,28 +1,29 @@
 global {
-    ducttape_output="/projects/tir4/users/pfernand/workflows-outputs/qaware-wmt20-v2"
+    ducttape_output="/path/to/save/outputs/"
     ducttape_experimental_imports=true
     ducttape_experimental_submitters=true
     submitter="slurm"
+    exclude=""
 
-    repo=/home/pfernand/repos/qaware-decoding/
-    comet_dir=/projects/tir1/users/pfernand/comet-v3/
-    bleurt_dir=/projects/tir1/users/pfernand/bleurt/BLEURT-20/
-    bleurt_venv=/home/pfernand/repos/qaware-decoding/.bleurt_venv
-    mbartqe_dir=/projects/tir1/users/pfernand/mbart-qe/
-    openkiwi_model="/projects/tir1/users/pfernand/openkiwi/model_epoch=02-val_PEARSON=0.79.ckpt"
-    openkiwi_venv=/home/pfernand/repos/qaware-decoding/.openkiwi_venv
+    repo="/path/to/qaware-decode/"
+    comet_dir="/path/to/comet/"
+    bleurt_dir="/path/to/bleurt/"
+    bleurt_venv="/path/to/bleurt/venv/"
+    mbartqe_dir="/path/to/mbartqe/"
+    openkiwi_model="/path/to/openkiwi/model/"
+    openkiwi_venv="/path/to/openkiwi/venv/"
 
     train_dir=""
     devtest_dir=(
         TargetLang:
-            de="/projects/tir1/corpora/sentence-mt/wmt20/en-de/"
-            ru="/projects/tir1/corpora/sentence-mt/wmt20/en-ru/"
+            de="/path/to/devtest/de/"
+            ru="/path/to/devtest/ru/"
     )
     
     pretrained_model=(
         TargetLang:
-            de="/projects/tir2/users/pfernand/models/wmt19.en-de.joined-dict.single_model/"
-            ru="/projects/tir2/users/pfernand/models/wmt19.en-ru.single_model/"
+            de="/path/to/wmtmodels/wmt19.en-de.joined-dict.single_model/"
+            ru="/path/to/wmtmodels/wmt19.en-ru.single_model/"
     )
             
     is_multilingual=False
@@ -48,21 +49,18 @@ global {
     sampling=(
         DecodeType:
             beam_search=false
-            diverse_siblings=false
             sampling=true
             nucleus_60=true
     )
     sampling_topp=(
         DecodeType:
             beam_search=""
-            diverse_siblings=""
             sampling=""
             nucleus_60=0.6
     )
     diversity_rate=(
         DecodeType:
             beam_search=-1
-            diverse_siblings=0.5
             sampling=-1
             nucleus_60=-1
     )
@@ -142,34 +140,19 @@ plan Rerank {
     reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 5 20 50 100 200) * (Rerank: train) * (RerankEval: bleu comet bleurt)
 }
 
-plan RerankOracle {
-    #reach ScoreTranslations via (UsePretrained: true) * (TargetLang: de) * (DecodeType: beam_search) * (NBest: 5 20) * (Rerank: oracle) * (RerankEval: bleu comet bleurt)
-    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 5 20 50 100 200) * (Rerank: oracle) * (RerankEval: bleu comet bleurt)
-}
-
 plan MBRDecoding {
-    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: de) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 5) * (MBRSamples: 5) * (MBRDecoding: true) * (MBRMetric: comet)
-    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: de) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 20) * (MBRSamples: 20) * (MBRDecoding: true) * (MBRMetric: comet)
-    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: de) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 50) * (MBRSamples: 50) * (MBRDecoding: true) * (MBRMetric: bleurt bleu comet)
-    #reach ScoreTranslations via (UsePretrained: true) * (TargetLang: de) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 200) * (Rerank: train) * (RerankEval: comet) * (MBRSamples: 50) * (MBRDecoding: true) * (MBRMetric: bleu comet bleurt)
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 5)   * (MBRSamples: 5) * (MBRDecoding: true) * (MBRMetric: bleurt bleu comet)
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 20)  * (MBRSamples: 20) * (MBRDecoding: true) * (MBRMetric: bleurt bleu comet)
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 50)  * (MBRSamples: 50) * (MBRDecoding: true) * (MBRMetric: bleurt bleu comet)
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 100) * (MBRSamples: 100) * (MBRDecoding: true) * (MBRMetric: bleurt bleu comet)
 }
 
-plan MBRDecodingLong {
-    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: de) * (DecodeType: sampling) * (NBest: 100) * (MBRSamples: 100) * (MBRDecoding: true) * (MBRMetric: comet)
-    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: de) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 200) * (Rerank: train) * (RerankEval: comet) * (MBRSamples: 100) * (MBRDecoding: true) * (MBRMetric: comet)
+plan TwoStage {
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 200) * (Rerank: train) * (RerankEval: bleu) * (MBRSamples: *) * (MBRDecoding: true) * (MBRMetric: bleu)
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 200) * (Rerank: train) * (RerankEval: comet) * (MBRSamples: *) * (MBRDecoding: true) * (MBRMetric: comet)
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 200) * (Rerank: train) * (RerankEval: bleurt) * (MBRSamples: *) * (MBRDecoding: true) * (MBRMetric: bleurt)
 }
 
-plan Test {
-    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: de) * (DecodeType: sampling) * (NBest: 100) * (Rerank: train) * (RerankEval: comet) * (MBRSamples: 20) * (MBRDecoding: true) * (MBRMetric: comet)
-    #reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (Rerank: fixed) * (RerankMetric: cometsrc)
-}
-
-plan MBRDecodingOthers {
-    #reach ScoreTranslations via (UsePretrained: true) * (TargetLang: de) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 5) * (MBRSamples: 5) * (MBRDecoding: true) * (MBRMetric: comet)
-    #reach ScoreTranslations via (UsePretrained: true) * (TargetLang: de) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 20) * (MBRSamples: 20) * (MBRDecoding: true) * (MBRMetric: comet)
-    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: ru) * (DecodeType: nucleus_60) * (NBest: 50) * (MBRSamples: 50) * (MBRDecoding: true) * (MBRMetric: bleu comet bleurt)
-    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: ru) * (DecodeType: nucleus_60) * (NBest: 200) * (Rerank: train) * (RerankEval: bleu) * (MBRSamples: 50) * (MBRDecoding: true) * (MBRMetric: bleu)
-    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: ru) * (DecodeType: nucleus_60) * (NBest: 200) * (Rerank: train) * (RerankEval: comet) * (MBRSamples: 50) * (MBRDecoding: true) * (MBRMetric: comet)
-    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: ru) * (DecodeType: nucleus_60) * (NBest: 200) * (Rerank: train) * (RerankEval: bleurt) * (MBRSamples: 50) * (MBRDecoding: true) * (MBRMetric: bleurt)
-    #reach ScoreTranslations via (UsePretrained: true) * (TargetLang: de) * (DecodeType: nucleus_60) * (NBest: 200) * (Rerank: train) * (RerankEval: bleurt) * (MBRSamples: 50) * (MBRDecoding: true) * (MBRMetric: bleurt)
+plan RerankOracle {
+    reach ScoreTranslations via (UsePretrained: true) * (TargetLang: *) * (DecodeType: beam_search nucleus_60 sampling) * (NBest: 5 20 50 100 200) * (Rerank: oracle) * (RerankEval: bleu comet bleurt)
 }
