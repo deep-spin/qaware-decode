@@ -3,7 +3,7 @@ Quality-Aware Decoding
 [![Python Lint](https://github.com/deep-spin/qaware-decode/actions/workflows/pylint.yml/badge.svg)](https://github.com/deep-spin/qaware-decode/actions/workflows/pylint.yml)
 
 
-This is the official repository for the paper [Quality-Aware Decoding for Neural Machine Translation]().
+This is the official repository for the paper [Quality-Aware Decoding for Neural Machine Translation](https://arxiv.org/abs/2205.00978).
 
 <hr />
 
