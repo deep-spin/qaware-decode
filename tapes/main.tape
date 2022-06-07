@@ -297,8 +297,8 @@ func GenerateTranslations
         --nbest $nbest \
             > full_outputs 
 
-        cat full_outputs | grep ^H | cut -c 3- | sort -n | cut -f2 > $scores
-        cat full_outputs | grep ^H | cut -c 3- | sort -n | cut -f3- | \
+        cat full_outputs | grep ^H | cut -c 3- | sort -n --temporary-directory="/mnt/qad/tmp" | cut -f2 > $scores
+        cat full_outputs | grep ^H | cut -c 3- | sort -n --temporary-directory="/mnt/qad/tmp" | cut -f3- | \
             $([ "$bpe_type" = "fastbpe" ] && echo "sacremoses -l ${tgt_lang} detokenize" || echo "tee") > $predictions
 }
 
@@ -414,19 +414,26 @@ func ComputeMetrics
     :: bleurt_venv
     :: nbest
 {
+    echo "pre-processing source and target files..."
     awk "{while(i++<$nbest)print;i=0}" $tgt > tgt_repeat
     awk "{while(i++<$nbest)print;i=0}" $src > src_repeat
+
+    echo "running reference-based metrics..."
     python $repo/scripts/score.py \
         $pred_nbest tgt_repeat --src src_repeat \
             --comet-dir $comet_dir \
             --save-segment-level $metrics
+#	    --chunk-size 80000 \
 
     if [ ! -z "$bleurt_dir"  ] && [ ! -z "$bleurt_venv" ]; then
+	echo "running BLEURT..."
         source $bleurt_venv/bin/activate
         python $repo/scripts/score.py \
             $pred_nbest tgt_repeat --src src_repeat \
             --bleurt-dir $bleurt_dir \
             --no-lexical-metrics --save-segment-level bleurt.txt
+	
+	echo "BLEURT post-processing..."
         mv $metrics other-metrics.txt
         paste -d ' ' other-metrics.txt bleurt.txt > $metrics
     fi
